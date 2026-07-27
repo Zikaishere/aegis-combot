@@ -1,0 +1,29 @@
+{
+  "name": "project-veil-blaze",
+  "version": "1.0.0",
+  "description": "Blaze - Archive Intelligence Unit B-17 | Project Veil AI Server Director",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "bottleneck": "^2.19.5",
+    "canvas": "^3.2.3",
+    "chart.js": "^4.5.1",
+    "chartjs-node-canvas": "^5.0.0",
+    "discord.js": "^14.0.0",
+    "dotenv": "^16.0.0",
+    "duck-duck-scrape": "^2.2.7",
+    "groq-sdk": "^0.3.0",
+    "mongoose": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "nodemon": "^3.0.0",
+    "tsx": "^4.23.0",
+    "typescript": "^6.0.3"
+  }
+}
