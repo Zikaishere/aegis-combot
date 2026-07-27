@@ -7,7 +7,7 @@ import { getLoggedError } from "../../services/ErrorService.js";
 export class OwnerCommand extends BaseCommand {
   name = "owner";
   description = "Owner-only commands";
-  aliases = ["error", "addprompt", "cleardb"];
+  aliases = ["error", "addprompt", "cleardb", "leaveservers"];
   ownerOnly = true;
 
   slashCommand = new SlashCommandBuilder()
@@ -27,6 +27,9 @@ export class OwnerCommand extends BaseCommand {
     )
     .addSubcommand((sub) =>
       sub.setName("cleardb").setDescription("Wipe all history & memories"),
+    )
+    .addSubcommand((sub) =>
+      sub.setName("leaveservers").setDescription("Make the bot leave all servers"),
     );
 
   async run(ctx: CommandContext) {
@@ -41,6 +44,7 @@ export class OwnerCommand extends BaseCommand {
     if (cmd === "error") return this.lookupError(ctx);
     if (cmd === "addprompt") return this.addPrompt(ctx);
     if (cmd === "cleardb") return this.clearDb(ctx);
+    if (cmd === "leaveservers") return this.leaveServers(ctx);
 
     return null;
   }
@@ -116,6 +120,38 @@ export class OwnerCommand extends BaseCommand {
       return `nuked: ${names.filter((_, i) => results[i].deletedCount > 0).join(", ")}`;
     } catch (error) {
       return `clear failed: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+
+  private async leaveServers(ctx: CommandContext) {
+    const client = ctx.type === "slash" && ctx.interaction
+      ? ctx.interaction.client
+      : ctx.message.client;
+
+    const guilds = client.guilds.cache;
+    const count = guilds.size;
+
+    if (count === 0) return "not in any servers";
+
+    try {
+      if (ctx.type === "slash" && ctx.interaction) {
+        await ctx.interaction.reply(`leaving ${count} server(s)...`);
+      }
+
+      const results = await Promise.allSettled(
+        guilds.map((g: any) => g.leave()),
+      );
+
+      const left = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.filter((r) => r.status === "rejected").length;
+
+      const msg = `done. left ${left} server(s)${failed ? `, failed to leave ${failed}` : ""}`;
+      if (ctx.type === "slash" && ctx.interaction) {
+        await ctx.interaction.followUp(msg);
+      }
+      return msg;
+    } catch (error) {
+      return `leave failed: ${error instanceof Error ? error.message : String(error)}`;
     }
   }
 }
