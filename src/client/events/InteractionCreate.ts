@@ -5,6 +5,7 @@ import * as telemetry from "../../telemetry/recorder.js";
 
 export async function handleInteraction(interaction: Interaction): Promise<void> {
   if (!interaction.isChatInputCommand()) return;
+  if (!interaction.guild) return;
 
   try {
     await handleSlash(interaction as ChatInputCommandInteraction);

@@ -9,20 +9,11 @@ import * as telemetry from "../../telemetry/recorder.js";
 export async function handleMessage(message: Message): Promise<void> {
   try {
     if (message.author.bot) return;
+    if (!message.guild) return;
 
     observe(message);
 
     telemetry.addActiveUser(message.author.id);
-
-    const isDirectMessage =
-      message.channel?.isDMBased?.() ??
-      (typeof message.inGuild === "function"
-        ? !message.inGuild()
-        : !message.guildId && !message.guild);
-
-    if (isDirectMessage) {
-      console.log(`DM from ${message.author.tag} (${message.author.id})`);
-    }
 
     const prefix = await getPrefix(message.guildId);
     const contentLower = message.content.toLowerCase();
