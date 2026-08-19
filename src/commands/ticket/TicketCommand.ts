@@ -90,7 +90,8 @@ export class TicketCommand extends BaseCommand {
 
     if (!channel || !category || !staffRole) return "Missing required options.";
 
-    const botPerms = (channel as any).permissionsFor?.(ctx.message.guild?.members?.me);
+    const guild = ctx.interaction?.guild ?? ctx.message?.guild;
+    const botPerms = (channel as any).permissionsFor?.(guild?.members?.me);
     if (!botPerms?.has(PermissionFlagsBits.SendMessages) || !botPerms?.has(PermissionFlagsBits.EmbedLinks)) {
       return "I don't have permission to send in that channel.";
     }
@@ -148,8 +149,9 @@ export class TicketCommand extends BaseCommand {
       .map(m => `[${new Date(m.timestamp).toLocaleString()}] ${m.author}: ${m.content}`)
       .join("\n");
 
+    const guildObj = ctx.interaction?.guild ?? ctx.message?.guild;
     const logChannel = config.logChannelId
-      ? await ctx.message.guild?.channels.fetch(config.logChannelId).catch(() => null)
+      ? await guildObj?.channels.fetch(config.logChannelId).catch(() => null)
       : null;
 
     if (logChannel && "send" in logChannel) {
@@ -176,7 +178,8 @@ export class TicketCommand extends BaseCommand {
     }
 
     setTimeout(async () => {
-      const channel = await ctx.message.guild?.channels.fetch(ticket.channelId).catch(() => null);
+      const g = ctx.interaction?.guild ?? ctx.message?.guild;
+      const channel = await g?.channels.fetch(ticket.channelId).catch(() => null);
       if (channel) await channel.delete().catch(() => {});
     }, 5000);
 
@@ -207,7 +210,7 @@ export class TicketCommand extends BaseCommand {
     const ticket = await Ticket.findOne({ guildId: ctx.guildId, channelId: ctx.channelId, status: "open" });
     if (!ticket) return "No open ticket in this channel.";
 
-    const channel = await ctx.message.guild?.channels.fetch(ctx.channelId);
+    const channel = await (ctx.interaction?.guild ?? ctx.message?.guild)?.channels.fetch(ctx.channelId);
     if (!channel || !("permissionOverwrites" in channel)) return "Cannot modify this channel.";
 
     await (channel as any).permissionOverwrites.edit(user.id, {
