@@ -1,7 +1,7 @@
 export interface EnvConfig {
   discordToken: string;
   mongoUri: string;
-  groqApiKey: string;
+  apiKey: string;
   ownerId: string;
   defaultPrefix: string;
   defaultModel: string;

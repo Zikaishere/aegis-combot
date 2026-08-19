@@ -1,11 +1,11 @@
 import type { AIProvider } from "./AIProvider.js";
-import { groqProvider } from "./groq/GroqProvider.js";
+import { openrouterProvider } from "./openrouter/OpenRouterProvider.js";
 
 let currentProvider: AIProvider | null = null;
 
 export function getProvider(): AIProvider {
   if (!currentProvider) {
-    currentProvider = groqProvider;
+    currentProvider = openrouterProvider;
   }
   return currentProvider;
 }

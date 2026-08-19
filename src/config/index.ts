@@ -23,10 +23,10 @@ if (!process.env.DISCORD_TOKEN) {
 export const env: EnvConfig = {
   discordToken: requireEnv("DISCORD_TOKEN"),
   mongoUri: requireEnv("MONGO_URI"),
-  groqApiKey: requireEnv("GROQ_API_KEY"),
+  apiKey: requireEnv("OPENROUTER_API_KEY"),
   ownerId: optionalEnv("OWNER_ID", "880070472434339880"),
   defaultPrefix: optionalEnv("DEFAULT_PREFIX", "a."),
-  defaultModel: optionalEnv("DEFAULT_MODEL", "llama-3.3-70b-versatile"),
+  defaultModel: optionalEnv("DEFAULT_MODEL", "google/gemma-4-26b-a4b-it:free"),
   maxHistory: parseInt(optionalEnv("MAX_HISTORY", "50"), 10),
   contextWindow: parseInt(optionalEnv("CONTEXT_WINDOW", "10"), 10),
   defaultCooldownMs: parseInt(optionalEnv("COOLDOWN_MS", "3000"), 10),

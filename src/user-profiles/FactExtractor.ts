@@ -1,5 +1,5 @@
 import { getProvider } from "../ai/factory.js";
-import { backgroundLimiter } from "../ai/groq/rate-limiters.js";
+import { backgroundLimiter } from "../ai/rate-limiters.js";
 import { env } from "../config/index.js";
 
 const PII_PATTERNS = [

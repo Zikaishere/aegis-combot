@@ -16,7 +16,7 @@ export const client = new Client({
   partials: [Partials.Channel, Partials.Message, Partials.Reaction],
 });
 
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   console.log(`Aegis online as ${client.user?.tag}`);
   client.user?.setPresence({
     activities: [{ name: "Community AI Assistant | Aegis", type: 0 }],
