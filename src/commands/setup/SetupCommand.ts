@@ -1,13 +1,119 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from "discord.js";
+import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from "discord.js";
 import { BaseCommand } from "../base/BaseCommand.js";
 import type { CommandContext } from "../types.js";
 import { PermissionLevel } from "../../auth/PermissionLevel.js";
-import VerificationConfig from "../../models/VerificationConfig.js";
-import AutoModConfig from "../../models/AutoModConfig.js";
-import HoneypotConfig from "../../models/HoneypotConfig.js";
-import WelcomeConfig from "../../models/WelcomeConfig.js";
-import TicketConfig from "../../models/TicketConfig.js";
-import AuditLogEntry from "../../models/AuditLogEntry.js";
+
+interface SetupCheck {
+  name: string;
+  enabled: boolean;
+  details: string;
+  cmd: string;
+}
+
+async function loadChecks(guildId: string): Promise<SetupCheck[]> {
+  const [
+    verifyConfig,
+    autoModConfig,
+    honeypotConfig,
+    welcomeConfig,
+    ticketConfig,
+    auditCount,
+  ] = await Promise.all([
+    import("../../models/VerificationConfig.js").then(m => m.default.findOne({ guildId })),
+    import("../../models/AutoModConfig.js").then(m => m.default.findOne({ guildId })),
+    import("../../models/HoneypotConfig.js").then(m => m.default.findOne({ guildId })),
+    import("../../models/WelcomeConfig.js").then(m => m.default.findOne({ guildId })),
+    import("../../models/TicketConfig.js").then(m => m.default.findOne({ guildId })),
+    import("../../models/AuditLogEntry.js").then(m => m.default.countDocuments({ guildId })),
+  ]);
+
+  const checks: SetupCheck[] = [];
+
+  const verifyReady = !!verifyConfig?.enabled && !!verifyConfig.gateChannelId && !!verifyConfig.verifiedRoleId;
+  checks.push({
+    name: "Verification",
+    enabled: verifyReady,
+    details: verifyConfig?.enabled
+      ? `Gate: ${verifyConfig.gateChannelId ? `<#${verifyConfig.gateChannelId}>` : "not set"} · Role: ${verifyConfig.verifiedRoleId ? `<@&${verifyConfig.verifiedRoleId}>` : "not set"}`
+      : "Not configured",
+    cmd: "`/verify setup`",
+  });
+
+  const welcomeReady = !!welcomeConfig?.welcome?.enabled;
+  checks.push({
+    name: "Welcome Messages",
+    enabled: welcomeReady,
+    details: welcomeConfig?.welcome?.enabled
+      ? `Channel: ${welcomeConfig.welcome.channelId ? `<#${welcomeConfig.welcome.channelId}>` : "not set"}`
+      : "Not configured",
+    cmd: "`/welcome channel` + `/welcome toggle`",
+  });
+
+  const autoModReady = !!autoModConfig?.enabled;
+  checks.push({
+    name: "Auto-Moderation",
+    enabled: autoModReady,
+    details: autoModConfig?.enabled
+      ? `Spam: ${autoModConfig.antiSpam.enabled ? "on" : "off"} · Links: ${autoModConfig.linkFilter.enabled ? "on" : "off"} · Profanity: ${autoModConfig.profanityFilter.enabled ? "on" : "off"}`
+      : "Not configured",
+    cmd: "`/automod toggle enabled:true`",
+  });
+
+  const modLogReady = !!autoModConfig?.modLogChannelId;
+  checks.push({
+    name: "Moderation Log",
+    enabled: modLogReady,
+    details: autoModConfig?.modLogChannelId
+      ? `Channel: <#${autoModConfig.modLogChannelId}>`
+      : "Not configured",
+    cmd: "`/modlog #channel`",
+  });
+
+  const honeypotReady = !!honeypotConfig?.enabled && (honeypotConfig.trapChannels?.length ?? 0) > 0;
+  checks.push({
+    name: "Honeypot",
+    enabled: honeypotReady,
+    details: honeypotConfig?.enabled
+      ? `Trap channels: ${honeypotConfig.trapChannels.length} · Log: ${honeypotConfig.logChannelId ? `<#${honeypotConfig.logChannelId}>` : "not set"}`
+      : "Not configured",
+    cmd: "`/honeypot add #channel`",
+  });
+
+  const ticketReady = !!ticketConfig?.enabled;
+  checks.push({
+    name: "Tickets",
+    enabled: ticketReady,
+    details: ticketConfig?.enabled
+      ? `Panel: ${ticketConfig.channelId ? `<#${ticketConfig.channelId}>` : "not set"} · Category: ${ticketConfig.categoryId ? `<#${ticketConfig.categoryId}>` : "not set"}`
+      : "Not configured",
+    cmd: "`/ticket setup`",
+  });
+
+  checks.push({
+    name: "Reaction Roles",
+    enabled: false,
+    details: "Create reaction role messages",
+    cmd: "`/reactionrole create`",
+  });
+
+  checks.push({
+    name: "AI Channels",
+    enabled: false,
+    details: "Restrict which channels the AI responds in",
+    cmd: "`/config ai-channel`",
+  });
+
+  checks.push({
+    name: "Audit Log",
+    enabled: auditCount > 0,
+    details: auditCount > 0
+      ? `${auditCount} entries logged`
+      : "Will populate as events occur",
+    cmd: "`/auditlog status`",
+  });
+
+  return checks;
+}
 
 export class SetupCommand extends BaseCommand {
   name = "setup";
@@ -40,100 +146,40 @@ export class SetupCommand extends BaseCommand {
   private async handleOverview(ctx: CommandContext): Promise<{ embeds: any[] }> {
     if (!ctx.guildId) return { embeds: [] };
 
-    const [verifyConfig, autoModConfig, honeypotConfig, welcomeConfig, ticketConfig] = await Promise.all([
-      VerificationConfig.findOne({ guildId: ctx.guildId }),
-      AutoModConfig.findOne({ guildId: ctx.guildId }),
-      HoneypotConfig.findOne({ guildId: ctx.guildId }),
-      WelcomeConfig.findOne({ guildId: ctx.guildId }),
-      TicketConfig.findOne({ guildId: ctx.guildId }),
-    ]);
+    const checks = await loadChecks(ctx.guildId);
 
-    const auditCount = await AuditLogEntry.countDocuments({ guildId: ctx.guildId });
+    const done = checks.filter(c => c.enabled).length;
+    const total = checks.length;
+    const pct = Math.round((done / total) * 100);
+
+    const bar = pct === 100
+      ? "🟩🟩🟩🟩🟩"
+      : pct >= 80
+        ? "🟩🟩🟩🟩⬜"
+        : pct >= 60
+          ? "🟩🟩🟩⬜⬜"
+          : pct >= 40
+            ? "🟩🟩⬜⬜⬜"
+            : pct >= 20
+              ? "🟩⬜⬜⬜⬜"
+              : "⬜⬜⬜⬜⬜";
 
     const check = (val: boolean) => val ? "✅" : "⬜";
 
-    const items = [
-      {
-        name: "1. Verification",
-        status: check(!!verifyConfig?.enabled && !!verifyConfig?.gateChannelId && !!verifyConfig?.verifiedRoleId),
-        details: verifyConfig?.enabled
-          ? `Gate: ${verifyConfig.gateChannelId ? `<#${verifyConfig.gateChannelId}>` : "not set"} · Role: ${verifyConfig.verifiedRoleId ? `<@&${verifyConfig.verifiedRoleId}>` : "not set"}`
-          : "Not configured — `/verify setup`",
-        cmd: "`/verify setup`",
-      },
-      {
-        name: "2. Welcome Messages",
-        status: check(!!welcomeConfig?.welcome?.enabled),
-        details: welcomeConfig?.welcome?.enabled
-          ? `Welcome: ${welcomeConfig.welcome.channelId ? `<#${welcomeConfig.welcome.channelId}>` : "not set"} · Goodbye: ${welcomeConfig.goodbye?.channelId ? `<#${welcomeConfig.goodbye.channelId}>` : "not set"}`
-          : "Not configured — `/welcome setup`",
-        cmd: "`/welcome channel` + `/welcome toggle`",
-      },
-      {
-        name: "3. Auto-Moderation",
-        status: check(!!autoModConfig?.enabled),
-        details: autoModConfig?.enabled
-          ? `Spam: ${autoModConfig.antiSpam.enabled ? "on" : "off"} · Links: ${autoModConfig.linkFilter.enabled ? "on" : "off"} · Profanity: ${autoModConfig.profanityFilter.enabled ? "on" : "off"}`
-          : "Not configured — `/automod toggle enabled`",
-        cmd: "`/automod`",
-      },
-      {
-        name: "4. Moderation Log",
-        status: check(!!autoModConfig?.modLogChannelId),
-        details: autoModConfig?.modLogChannelId
-          ? `Log channel: <#${autoModConfig.modLogChannelId}>`
-          : "Not configured — `/modlog`",
-        cmd: "`/modlog #channel`",
-      },
-      {
-        name: "5. Honeypot",
-        status: check(!!honeypotConfig?.enabled && honeypotConfig.trapChannels.length > 0),
-        details: honeypotConfig?.enabled
-          ? `Trap channels: ${honeypotConfig.trapChannels.length} · Log: ${honeypotConfig.logChannelId ? `<#${honeypotConfig.logChannelId}>` : "not set"}`
-          : "Not configured — `/honeypot`",
-        cmd: "`/honeypot add #channel`",
-      },
-      {
-        name: "6. Reaction Roles",
-        status: "ℹ️",
-        details: "Create reaction role messages — `/reactionrole create`",
-        cmd: "`/reactionrole create`",
-      },
-      {
-        name: "7. Tickets",
-        status: check(!!ticketConfig?.enabled),
-        details: ticketConfig?.enabled
-          ? `Panel: ${ticketConfig.channelId ? `<#${ticketConfig.channelId}>` : "not set"} · Category: ${ticketConfig.categoryId ? `<#${ticketConfig.categoryId}>` : "not set"}`
-          : "Not configured — `/ticket setup`",
-        cmd: "`/ticket setup`",
-      },
-      {
-        name: "8. AI Channels",
-        status: "ℹ️",
-        details: "Restrict which channels the AI responds in — `/config ai-channel`",
-        cmd: "`/config ai-channel`",
-      },
-      {
-        name: "9. Audit Log",
-        status: check(auditCount > 0),
-        details: auditCount > 0
-          ? `${auditCount} entries logged`
-          : "No entries yet — will populate as events occur",
-        cmd: "`/auditlog status`",
-      },
-    ];
-
-    const description = items.map(item =>
-      `${item.status} **${item.name}**\n` +
-      `> ${item.details}\n` +
-      `> ${item.cmd}`,
-    ).join("\n\n");
+    const lines = checks.map(c =>
+      `${check(c.enabled)} **${c.name}**\n` +
+      `> ${c.details}\n` +
+      `> ${c.cmd}`,
+    );
 
     const embed = new EmbedBuilder()
-      .setColor(0x5865f2)
-      .setTitle("Aegis Setup Checklist")
-      .setDescription(description)
-      .setFooter({ text: "Aegis — Setup Wizard" })
+      .setColor(pct === 100 ? 0x2ecc71 : 0xf59e0b)
+      .setTitle("Aegis Setup")
+      .setDescription(
+        `${bar} **${pct}%** complete (${done}/${total})\n\n` +
+        lines.join("\n\n"),
+      )
+      .setFooter({ text: pct === 100 ? "All features configured!" : "Run the commands above to finish setup" })
       .setTimestamp();
 
     return { embeds: [embed] };
