@@ -66,14 +66,14 @@ export class HelpCommand extends BaseCommand {
     const result: CmdInfo[] = [];
 
     for (const [, cmd] of commands) {
-      if (cmd.ownerOnly && !isOwner) continue;
-
       const permLevel = cmd.requiredPermissionLevel ?? PermissionLevel.None;
 
-      if (permLevel >= PermissionLevel.Owner && !isOwner) continue;
+      if (permLevel === PermissionLevel.Owner) continue;
+      if (cmd.ownerOnly) continue;
+      if (permLevel === PermissionLevel.Internal) continue;
+
       if (permLevel >= PermissionLevel.Moderator && !isMod && !isOwner) continue;
       if (permLevel >= PermissionLevel.Administrator && !isAdmin && !isOwner) continue;
-      if (permLevel === PermissionLevel.Internal) continue;
 
       const sub: { name: string; desc: string }[] = [];
       if (cmd.slashCommand) {

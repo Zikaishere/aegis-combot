@@ -1,6 +1,7 @@
 import type { Message, ChatInputCommandInteraction } from "discord.js";
 import type { ICommand, CommandContext } from "./types.js";
 import { getPrefix } from "../services/ConfigService.js";
+import { env } from "../config/index.js";
 import { HelpCommand } from "./help/HelpCommand.js";
 import { ConfigCommand } from "./config/ConfigCommand.js";
 import { OwnerCommand } from "./owner/OwnerCommand.js";
@@ -100,6 +101,36 @@ export async function handlePrefix(message: Message): Promise<void> {
 
   if (commandName === "stats") {
     await handleStatsPrefix(message, args);
+  }
+}
+
+const OWNER_PREFIX = "aegis ";
+
+export async function handleOwnerPrefix(message: Message): Promise<void> {
+  if (message.author.id !== env.ownerId) return;
+
+  const args = message.content.slice(OWNER_PREFIX.length).trim().split(/ +/);
+  const commandName = (args.shift() || "").toLowerCase();
+
+  if (commandName === "help") {
+    const { handleOwnerHelp } = await import("./help/OwnerHelp.js");
+    await handleOwnerHelp(message);
+    return;
+  }
+
+  const resolved = commands.get(commandName) || commands.get(aliases.get(commandName) || "");
+  if (resolved && resolved.ownerOnly) {
+    const ctx: CommandContext = {
+      type: "prefix",
+      name: commandName,
+      args,
+      userId: message.author.id,
+      guildId: message.guildId,
+      channelId: message.channelId,
+      message,
+    };
+    await resolved.execute(ctx);
+    return;
   }
 }
 

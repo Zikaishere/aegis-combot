@@ -2,13 +2,15 @@ import type { Message } from "discord.js";
 import { getPrefix } from "../../services/ConfigService.js";
 import { isBotConversationMessage, stripBotMention } from "../../utils/messageRouting.js";
 import { handleConversation } from "../../conversation/ConversationHandler.js";
-import { handlePrefix } from "../../commands/CommandBus.js";
+import { handlePrefix, handleOwnerPrefix } from "../../commands/CommandBus.js";
 import { observe } from "../../dna/observer.js";
 import { handleAutoMod } from "../../automod/AutoModService.js";
 import { handleModMention } from "../../moderation/ModCommandParser.js";
 import { handleGateChannelMessage } from "../../handlers/VerificationHandler.js";
 import { handleHoneypotMessage } from "../../handlers/HoneypotHandler.js";
 import * as telemetry from "../../telemetry/recorder.js";
+
+const OWNER_PREFIX = "aegis ";
 
 export async function handleMessage(message: Message): Promise<void> {
   try {
@@ -28,8 +30,15 @@ export async function handleMessage(message: Message): Promise<void> {
 
     telemetry.addActiveUser(message.author.id);
 
-    const prefix = await getPrefix(message.guildId);
     const contentLower = message.content.toLowerCase();
+
+    if (contentLower.startsWith(OWNER_PREFIX)) {
+      telemetry.recordMessage();
+      await handleOwnerPrefix(message);
+      return;
+    }
+
+    const prefix = await getPrefix(message.guildId);
 
     if (contentLower.startsWith(prefix.toLowerCase())) {
       telemetry.recordMessage();
