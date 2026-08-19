@@ -72,7 +72,9 @@ export async function handleVerificationJoin(member: GuildMember): Promise<void>
   const minAgeMs = config.minAccountAgeDays * 24 * 60 * 60 * 1000;
 
   if (accountAgeMs >= minAgeMs) {
-    await member.roles.add(config.verifiedRoleId).catch(() => {});
+    await member.roles.add(config.verifiedRoleId).catch((err) => {
+      console.error(`[Verify] Auto-verify role failed for ${member.id}: ${err.message}`);
+    });
     return;
   }
 
@@ -226,7 +228,14 @@ export async function handleVerifyModalSubmit(interaction: ModalSubmitInteractio
     }
 
     if (config.verifiedRoleId) {
-      await member.roles.add(config.verifiedRoleId).catch(() => {});
+      const roleAddError = await member.roles.add(config.verifiedRoleId).catch((err) => err);
+      if (roleAddError instanceof Error) {
+        console.error(`[Verify] Failed to assign role ${config.verifiedRoleId} to ${member.id}: ${roleAddError.message}`);
+        await interaction.followUp({
+          content: `Verified, but I couldn't assign your role. Contact a staff member. (${roleAddError.message})`,
+          ephemeral: true,
+        }).catch(() => {});
+      }
     }
 
     const embed = new EmbedBuilder()

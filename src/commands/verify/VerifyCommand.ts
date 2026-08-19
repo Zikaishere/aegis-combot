@@ -208,9 +208,10 @@ export class VerifyCommand extends BaseCommand {
     const member = await (ctx.interaction?.guild ?? ctx.message?.guild)?.members.fetch(user.id).catch(() => null);
     if (!member) return "User not found.";
 
-    await member.roles.add(config.verifiedRoleId).catch(() => {
-      return "Failed to assign role. Check my role hierarchy.";
-    });
+    const roleError = await member.roles.add(config.verifiedRoleId).catch((err) => err);
+    if (roleError instanceof Error) {
+      return `Failed to assign role: ${roleError.message}. Check my role hierarchy.`;
+    }
 
     return `Verified <@${user.id}>.`;
   }
