@@ -127,6 +127,14 @@ export class SetupCommand extends BaseCommand {
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addSubcommand(sub =>
       sub.setName("overview").setDescription("See the full setup checklist"),
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("reset")
+        .setDescription("Reset all settings and data for this server")
+        .addStringOption(opt =>
+          opt.setName("confirm").setDescription("Type CONFIRM to proceed").setRequired(true),
+        ),
     );
 
   async run(ctx: CommandContext): Promise<string | { embeds: any[] }> {
@@ -136,11 +144,11 @@ export class SetupCommand extends BaseCommand {
       ? ctx.interaction?.options.getSubcommand()
       : ctx.args[0];
 
-    if (subcommand === "overview" || !subcommand) {
-      return this.handleOverview(ctx);
+    switch (subcommand) {
+      case "overview": return this.handleOverview(ctx);
+      case "reset": return this.handleReset(ctx);
+      default: return "Unknown subcommand. Use `/setup overview` or `/setup reset`.";
     }
-
-    return "Unknown subcommand. Use `/setup overview`.";
   }
 
   private async handleOverview(ctx: CommandContext): Promise<{ embeds: any[] }> {
@@ -180,6 +188,90 @@ export class SetupCommand extends BaseCommand {
         lines.join("\n\n"),
       )
       .setFooter({ text: pct === 100 ? "All features configured!" : "Run the commands above to finish setup" })
+      .setTimestamp();
+
+    return { embeds: [embed] };
+  }
+
+  private async handleReset(ctx: CommandContext): Promise<string | { embeds: any[] }> {
+    if (!ctx.guildId) return "Server only.";
+
+    const confirm = ctx.type === "slash"
+      ? ctx.interaction?.options.getString("confirm")
+      : ctx.args[1];
+
+    if (confirm !== "CONFIRM") {
+      return "Type `/setup reset confirm:CONFIRM` to proceed. This will **delete all settings and data** for this server.";
+    }
+
+    const [
+      { default: VerificationConfig },
+      { default: AutoModConfig },
+      { default: HoneypotConfig },
+      { default: WelcomeConfig },
+      { default: TicketConfig },
+      { default: GuildConfig },
+      { default: UserConfig },
+      { default: ChatHistory },
+      { default: ServerDNA },
+      { default: UserMemory },
+      { default: Warning },
+      { default: Ticket },
+      { default: ReactionRole },
+      { default: AuditLogEntry },
+      { default: EmbedTemplate },
+      { default: SystemPrompt },
+    ] = await Promise.all([
+      import("../../models/VerificationConfig.js"),
+      import("../../models/AutoModConfig.js"),
+      import("../../models/HoneypotConfig.js"),
+      import("../../models/WelcomeConfig.js"),
+      import("../../models/TicketConfig.js"),
+      import("../../models/GuildConfig.js"),
+      import("../../models/UserConfig.js"),
+      import("../../models/ChatHistory.js"),
+      import("../../models/ServerDNA.js"),
+      import("../../models/UserMemory.js"),
+      import("../../models/Warning.js"),
+      import("../../models/Ticket.js"),
+      import("../../models/ReactionRole.js"),
+      import("../../models/AuditLogEntry.js"),
+      import("../../models/EmbedTemplate.js"),
+      import("../../models/SystemPrompt.js"),
+    ]);
+
+    const filter = { guildId: ctx.guildId };
+
+    const results = await Promise.all([
+      VerificationConfig.deleteMany(filter),
+      AutoModConfig.deleteMany(filter),
+      HoneypotConfig.deleteMany(filter),
+      WelcomeConfig.deleteMany(filter),
+      TicketConfig.deleteMany(filter),
+      GuildConfig.deleteMany(filter),
+      UserConfig.deleteMany(filter),
+      ChatHistory.deleteMany({ chatKey: { $regex: ctx.guildId } }),
+      ServerDNA.deleteMany(filter),
+      UserMemory.deleteMany(filter),
+      Warning.deleteMany(filter),
+      Ticket.deleteMany(filter),
+      ReactionRole.deleteMany(filter),
+      AuditLogEntry.deleteMany(filter),
+      EmbedTemplate.deleteMany(filter),
+      SystemPrompt.deleteMany(filter),
+    ]);
+
+    const totalDeleted = results.reduce((sum, r) => sum + (r.deletedCount ?? 0), 0);
+
+    const embed = new EmbedBuilder()
+      .setColor(0xff1744)
+      .setTitle("Server Reset Complete")
+      .setDescription(
+        `All settings and data for this server have been wiped.\n\n` +
+        `**${totalDeleted}** documents deleted across ${results.length} collections.\n\n` +
+        `Use the setup commands to reconfigure everything.`,
+      )
+      .setFooter({ text: "Aegis — Setup Reset" })
       .setTimestamp();
 
     return { embeds: [embed] };
