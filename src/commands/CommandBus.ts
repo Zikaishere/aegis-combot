@@ -7,8 +7,6 @@ import { OwnerCommand } from "./owner/OwnerCommand.js";
 import { MemoryCommand } from "./memory/MemoryCommand.js";
 import { ProfileCommand } from "./profile/ProfileCommand.js";
 import { PingCommand } from "./ping/PingCommand.js";
-import { AuthCommand } from "./auth/AuthCommand.js";
-import { LogsCommand } from "./logs/LogsCommand.js";
 import { ModCommand } from "./mod/ModCommand.js";
 import { BanCommand } from "./mod/BanCommand.js";
 import { KickCommand } from "./mod/KickCommand.js";
@@ -29,6 +27,7 @@ import { HoneypotCommand } from "./honeypot/HoneypotCommand.js";
 import { LockdownCommand } from "./mod/LockdownCommand.js";
 import { BansCommand } from "./mod/BansCommand.js";
 import { SetupCommand } from "./setup/SetupCommand.js";
+import { DataCommand } from "./data/DataCommand.js";
 import { handleStatsPrefix, handleStatsSlash } from "../telemetry/commands.js";
 
 const commands: Map<string, ICommand> = new Map();
@@ -49,8 +48,6 @@ register(new OwnerCommand());
 register(new MemoryCommand());
 register(new ProfileCommand());
 register(new PingCommand());
-register(new AuthCommand());
-register(new LogsCommand());
 register(new ModCommand());
 register(new BanCommand());
 register(new KickCommand());
@@ -71,6 +68,7 @@ register(new HoneypotCommand());
 register(new LockdownCommand());
 register(new BansCommand());
 register(new SetupCommand());
+register(new DataCommand());
 
 export function getAllCommands(): Map<string, ICommand> {
   return new Map(commands);

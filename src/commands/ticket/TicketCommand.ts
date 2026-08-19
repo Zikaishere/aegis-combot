@@ -7,13 +7,13 @@ import Ticket from "../../models/Ticket.js";
 
 export class TicketCommand extends BaseCommand {
   name = "ticket";
-  description = "Configure and manage support tickets";
+  description = "Configure the support ticket system";
   requiredPermissionLevel = PermissionLevel.Administrator;
   requiredPermissions = [PermissionFlagsBits.ManageGuild];
 
   slashCommand = new SlashCommandBuilder()
     .setName("ticket")
-    .setDescription("Ticket system")
+    .setDescription("Configure the support ticket system")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addSubcommand(sub =>
       sub

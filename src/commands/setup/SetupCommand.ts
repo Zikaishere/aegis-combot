@@ -117,13 +117,13 @@ async function loadChecks(guildId: string): Promise<SetupCheck[]> {
 
 export class SetupCommand extends BaseCommand {
   name = "setup";
-  description = "Interactive setup wizard for all Aegis features";
+  description = "Configure all Aegis features";
   requiredPermissionLevel = PermissionLevel.Administrator;
   requiredPermissions = [PermissionFlagsBits.ManageGuild];
 
   slashCommand = new SlashCommandBuilder()
     .setName("setup")
-    .setDescription("Interactive setup wizard for all Aegis features")
+    .setDescription("Configure all Aegis features")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addSubcommand(sub =>
       sub.setName("overview").setDescription("See the full setup checklist"),
@@ -131,7 +131,7 @@ export class SetupCommand extends BaseCommand {
     .addSubcommand(sub =>
       sub
         .setName("reset")
-        .setDescription("Reset all settings and data for this server")
+        .setDescription("Reset all configuration for this server")
         .addStringOption(opt =>
           opt.setName("confirm").setDescription("Type CONFIRM to proceed").setRequired(true),
         ),
@@ -201,7 +201,7 @@ export class SetupCommand extends BaseCommand {
       : ctx.args[1];
 
     if (confirm !== "CONFIRM") {
-      return "Type `/setup reset confirm:CONFIRM` to proceed. This will **delete all settings and data** for this server.";
+      return "Type `/setup reset confirm:CONFIRM` to proceed. This will **reset all configuration** for this server.";
     }
 
     const [
@@ -211,16 +211,6 @@ export class SetupCommand extends BaseCommand {
       { default: WelcomeConfig },
       { default: TicketConfig },
       { default: GuildConfig },
-      { default: UserConfig },
-      { default: ChatHistory },
-      { default: ServerDNA },
-      { default: UserMemory },
-      { default: Warning },
-      { default: Ticket },
-      { default: ReactionRole },
-      { default: AuditLogEntry },
-      { default: EmbedTemplate },
-      { default: SystemPrompt },
     ] = await Promise.all([
       import("../../models/VerificationConfig.js"),
       import("../../models/AutoModConfig.js"),
@@ -228,16 +218,6 @@ export class SetupCommand extends BaseCommand {
       import("../../models/WelcomeConfig.js"),
       import("../../models/TicketConfig.js"),
       import("../../models/GuildConfig.js"),
-      import("../../models/UserConfig.js"),
-      import("../../models/ChatHistory.js"),
-      import("../../models/ServerDNA.js"),
-      import("../../models/UserMemory.js"),
-      import("../../models/Warning.js"),
-      import("../../models/Ticket.js"),
-      import("../../models/ReactionRole.js"),
-      import("../../models/AuditLogEntry.js"),
-      import("../../models/EmbedTemplate.js"),
-      import("../../models/SystemPrompt.js"),
     ]);
 
     const filter = { guildId: ctx.guildId };
@@ -249,29 +229,19 @@ export class SetupCommand extends BaseCommand {
       WelcomeConfig.deleteMany(filter),
       TicketConfig.deleteMany(filter),
       GuildConfig.deleteMany(filter),
-      UserConfig.deleteMany(filter),
-      ChatHistory.deleteMany({ chatKey: { $regex: ctx.guildId } }),
-      ServerDNA.deleteMany(filter),
-      UserMemory.deleteMany(filter),
-      Warning.deleteMany(filter),
-      Ticket.deleteMany(filter),
-      ReactionRole.deleteMany(filter),
-      AuditLogEntry.deleteMany(filter),
-      EmbedTemplate.deleteMany(filter),
-      SystemPrompt.deleteMany(filter),
     ]);
 
     const totalDeleted = results.reduce((sum, r) => sum + (r.deletedCount ?? 0), 0);
 
     const embed = new EmbedBuilder()
-      .setColor(0xff1744)
-      .setTitle("Server Reset Complete")
+      .setColor(0xf59e0b)
+      .setTitle("Configuration Reset")
       .setDescription(
-        `All settings and data for this server have been wiped.\n\n` +
-        `**${totalDeleted}** documents deleted across ${results.length} collections.\n\n` +
-        `Use the setup commands to reconfigure everything.`,
+        `All **settings** for this server have been reset.\n\n` +
+        `**${totalDeleted}** config documents deleted.\n\n` +
+        `Data (chat history, warnings, profiles, etc.) was **not** affected. Use \`/data reset\` to wipe everything.`,
       )
-      .setFooter({ text: "Aegis — Setup Reset" })
+      .setFooter({ text: "Aegis — Setup" })
       .setTimestamp();
 
     return { embeds: [embed] };

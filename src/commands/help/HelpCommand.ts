@@ -6,20 +6,20 @@ import { getPrefix } from "../../services/ConfigService.js";
 import { getAllCommands } from "../CommandBus.js";
 import { PermissionLevel, PERMISSION_LABELS } from "../../auth/PermissionLevel.js";
 
-const CATEGORY_MAP: Record<number, { name: string; emoji: string; color: number }> = {
-  [PermissionLevel.None]: { name: "General", emoji: "💬", color: 0x5865f2 },
-  [PermissionLevel.Moderator]: { name: "Moderation", emoji: "🛡️", color: 0xf59e0b },
-  [PermissionLevel.Administrator]: { name: "Admin", emoji: "⚙️", color: 0xef4444 },
-  [PermissionLevel.Owner]: { name: "Owner", emoji: "👑", color: 0x9b59b6 },
+const CATEGORY_CONFIG: Record<number, { name: string; emoji: string; color: number; desc: string }> = {
+  [PermissionLevel.None]: { name: "General", emoji: "💬", color: 0x5865f2, desc: "Commands anyone can use" },
+  [PermissionLevel.Moderator]: { name: "Moderation", emoji: "🛡️", color: 0xf59e0b, desc: "Staff moderation tools" },
+  [PermissionLevel.Administrator]: { name: "Admin", emoji: "⚙️", color: 0xef4444, desc: "Server configuration" },
+  [PermissionLevel.Owner]: { name: "Owner", emoji: "👑", color: 0x9b59b6, desc: "Bot owner only" },
 };
 
 export class HelpCommand extends BaseCommand {
   name = "help";
-  description = "Shows Aegis command information";
+  description = "Show all commands and usage";
 
   slashCommand = new SlashCommandBuilder()
     .setName("help")
-    .setDescription("Shows Aegis command information")
+    .setDescription("Show all commands and usage")
     .addStringOption(opt =>
       opt.setName("command").setDescription("Get details on a specific command"),
     );
@@ -43,7 +43,7 @@ export class HelpCommand extends BaseCommand {
       ? ctx.interaction?.client.user
       : (ctx.message as any)?.client?.user;
 
-    const grouped: Map<number, { name: string; emoji: string; color: number; cmds: { name: string; desc: string }[] }> = new Map();
+    const grouped: Map<number, { name: string; emoji: string; color: number; desc: string; cmds: { name: string; desc: string; sub: string[] }[] }> = new Map();
 
     for (const [name, cmd] of commands) {
       if (cmd.ownerOnly && !isOwner) continue;
@@ -53,14 +53,25 @@ export class HelpCommand extends BaseCommand {
       if (permLevel >= PermissionLevel.Owner && !isOwner) continue;
       if (permLevel >= PermissionLevel.Moderator && !isMod && !isOwner) continue;
       if (permLevel >= PermissionLevel.Administrator && !isAdmin && !isOwner) continue;
-
       if (permLevel === PermissionLevel.Internal) continue;
 
-      const cat = CATEGORY_MAP[permLevel] || CATEGORY_MAP[PermissionLevel.None];
+      const cat = CATEGORY_CONFIG[permLevel] || CATEGORY_CONFIG[PermissionLevel.None];
       if (!grouped.has(permLevel)) {
         grouped.set(permLevel, { ...cat, cmds: [] });
       }
-      grouped.get(permLevel)!.cmds.push({ name, desc: cmd.description });
+
+      const sub: string[] = [];
+      if (cmd.slashCommand) {
+        const options = (cmd.slashCommand as any).options;
+        if (options?.length) {
+          const subCmds = options.filter((o: any) => o.type === 1);
+          for (const s of subCmds) {
+            sub.push(s.name);
+          }
+        }
+      }
+
+      grouped.get(permLevel)!.cmds.push({ name, desc: cmd.description, sub });
     }
 
     const sorted = [...grouped.entries()].sort((a, b) => a[0] - b[0]);
@@ -69,8 +80,9 @@ export class HelpCommand extends BaseCommand {
       .setColor(0x5865f2)
       .setTitle("Aegis")
       .setDescription(
-        "Your community AI assistant.\n\n" +
-        `Use **${prefix}help <command>** to see details on any command.`,
+        "Your community AI assistant.\n" +
+        `Use **${prefix}help <command>** for details on any command.\n` +
+        "\u200b",
       );
 
     if (botUser) {
@@ -78,9 +90,12 @@ export class HelpCommand extends BaseCommand {
     }
 
     for (const [, cat] of sorted) {
-      const lines = cat.cmds.map(c =>
-        `\`${prefix}${c.name}\` — ${c.desc}`,
-      );
+      const lines = cat.cmds.map(c => {
+        const subList = c.sub.length > 0
+          ? ` → _${c.sub.join(", ")}_`
+          : "";
+        return `\`${prefix}${c.name}\` — ${c.desc}${subList}`;
+      });
 
       embed.addFields({
         name: `${cat.emoji} ${cat.name}`,
@@ -97,8 +112,18 @@ export class HelpCommand extends BaseCommand {
       return true;
     }).length;
 
+    const totalSubs = [...commands.values()].reduce((sum, c) => {
+      if (c.slashCommand) {
+        const options = (c.slashCommand as any).options;
+        if (options?.length) {
+          return sum + options.filter((o: any) => o.type === 1).length;
+        }
+      }
+      return sum;
+    }, 0);
+
     embed.setFooter({
-      text: `${totalCmds} commands available · Aegis`,
+      text: `${totalCmds} commands · ${totalSubs} subcommands · Aegis`,
     }).setTimestamp();
 
     return { embeds: [embed] };
@@ -121,7 +146,7 @@ export class HelpCommand extends BaseCommand {
     }
 
     const permLevel = cmd.requiredPermissionLevel ?? PermissionLevel.None;
-    const cat = CATEGORY_MAP[permLevel] || CATEGORY_MAP[PermissionLevel.None];
+    const cat = CATEGORY_CONFIG[permLevel] || CATEGORY_CONFIG[PermissionLevel.None];
     const label = PERMISSION_LABELS[permLevel] || "Unknown";
 
     const embed = new EmbedBuilder()
@@ -129,17 +154,10 @@ export class HelpCommand extends BaseCommand {
       .setTitle(`${cat.emoji} ${prefix}${cmd.name}`)
       .setDescription(cmd.description || "No description provided.");
 
-    embed.addFields({
-      name: "Category",
-      value: `${cat.emoji} ${cat.name}`,
-      inline: true,
-    });
-
-    embed.addFields({
-      name: "Permission",
-      value: label,
-      inline: true,
-    });
+    embed.addFields(
+      { name: "Category", value: `${cat.emoji} ${cat.name}`, inline: true },
+      { name: "Permission", value: label, inline: true },
+    );
 
     if (cmd.aliases?.length) {
       embed.addFields({
@@ -152,7 +170,7 @@ export class HelpCommand extends BaseCommand {
     if (cmd.slashCommand) {
       const options = (cmd.slashCommand as any).options;
       if (options?.length) {
-        const subCmds = options.filter((o: any) => o.type === 1 || o.type === 2);
+        const subCmds = options.filter((o: any) => o.type === 1);
         if (subCmds.length) {
           const subLines = subCmds.map((s: any) =>
             `**${s.name}** — ${s.description}`,
