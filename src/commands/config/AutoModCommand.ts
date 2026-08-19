@@ -119,6 +119,24 @@ export class AutoModCommand extends BaseCommand {
         .setName("ai")
         .setDescription("Configure AI-powered moderation (catches context-dependent violations)")
         .addBooleanOption(opt => opt.setName("enabled").setDescription("Enable or disable AI moderation").setRequired(true)),
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("raid")
+        .setDescription("Configure raid detection (auto-lockdown on mass joins)")
+        .addBooleanOption(opt => opt.setName("enabled").setDescription("Enable raid detection").setRequired(true))
+        .addIntegerOption(opt => opt.setName("threshold").setDescription("Joins before lockdown (default 5)").setMinValue(2).setMaxValue(50))
+        .addIntegerOption(opt => opt.setName("window_seconds").setDescription("Time window in seconds (default 10)").setMinValue(5).setMaxValue(60)),
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("nuke")
+        .setDescription("Configure nuke detection (auto-lockdown on mass deletes/bans/kicks)")
+        .addBooleanOption(opt => opt.setName("enabled").setDescription("Enable nuke detection").setRequired(true))
+        .addIntegerOption(opt => opt.setName("channel_delete").setDescription("Channel deletes before lockdown (default 3)").setMinValue(2).setMaxValue(20))
+        .addIntegerOption(opt => opt.setName("role_delete").setDescription("Role deletes before lockdown (default 3)").setMinValue(2).setMaxValue(20))
+        .addIntegerOption(opt => opt.setName("bans").setDescription("Bans before lockdown (default 5)").setMinValue(2).setMaxValue(50))
+        .addIntegerOption(opt => opt.setName("kicks").setDescription("Kicks before lockdown (default 5)").setMinValue(2).setMaxValue(50)),
     );
 
   async run(ctx: CommandContext): Promise<string | { embeds: any[] }> {
@@ -137,6 +155,8 @@ export class AutoModCommand extends BaseCommand {
       case "profanity": return this.handleProfanity(ctx);
       case "exempt": return this.handleExempt(ctx);
       case "ai": return this.handleAI(ctx);
+      case "raid": return this.handleRaid(ctx);
+      case "nuke": return this.handleNuke(ctx);
       default: return "Unknown subcommand.";
     }
   }
@@ -173,6 +193,8 @@ export class AutoModCommand extends BaseCommand {
             { name: "Profanity Filter", value: profanityStatus, inline: false },
             { name: "Exempt Channels", value: exemptList, inline: false },
             { name: "AI Moderation", value: config.aiModeration?.enabled ? "On (context-aware)" : "Off", inline: true },
+            { name: "Raid Detection", value: config.raidDetection?.enabled ? "On (" + (config.raidDetection?.threshold ?? 5) + " joins / " + (config.raidDetection?.windowSeconds ?? 10) + "s)" : "Off", inline: true },
+            { name: "Nuke Detection", value: config.nukeDetection?.enabled ? "On (auto-lockdown)" : "Off", inline: true },
             { name: "Mod Log", value: config.modLogChannelId ? `<#${config.modLogChannelId}>` : "Not set", inline: true },
             { name: "Audit Log", value: config.auditLogChannelId ? `<#${config.auditLogChannelId}>` : "Not set", inline: true },
           )
@@ -360,5 +382,55 @@ export class AutoModCommand extends BaseCommand {
     );
 
     return "AI moderation " + (enabled ? "enabled" : "disabled") + ". Messages with suspicious patterns will be analyzed by AI for context-dependent violations.";
+  }
+
+  private async handleRaid(ctx: CommandContext): Promise<string> {
+    const enabled = ctx.type === "slash"
+      ? ctx.interaction?.options.getBoolean("enabled", true)
+      : ctx.args[1] === "true";
+
+    if (enabled === null || enabled === undefined) return "Provide `enabled true/false`.";
+
+    const update: any = { "raidDetection.enabled": enabled };
+
+    if (ctx.type === "slash") {
+      const threshold = ctx.interaction?.options.getInteger("threshold");
+      const windowSeconds = ctx.interaction?.options.getInteger("window_seconds");
+      if (threshold) update["raidDetection.threshold"] = threshold;
+      if (windowSeconds) update["raidDetection.windowSeconds"] = windowSeconds;
+    }
+
+    await AutoModConfig.findOneAndUpdate({ guildId: ctx.guildId }, update, { upsert: true });
+
+    const config = await AutoModConfig.findOne({ guildId: ctx.guildId });
+    const t = config?.raidDetection?.threshold ?? 5;
+    const w = config?.raidDetection?.windowSeconds ?? 10;
+
+    return "Raid detection " + (enabled ? "enabled" : "disabled") + ". Lockdown triggers at " + t + " joins within " + w + "s.";
+  }
+
+  private async handleNuke(ctx: CommandContext): Promise<string> {
+    const enabled = ctx.type === "slash"
+      ? ctx.interaction?.options.getBoolean("enabled", true)
+      : ctx.args[1] === "true";
+
+    if (enabled === null || enabled === undefined) return "Provide `enabled true/false`.";
+
+    const update: any = { "nukeDetection.enabled": enabled };
+
+    if (ctx.type === "slash") {
+      const channelDelete = ctx.interaction?.options.getInteger("channel_delete");
+      const roleDelete = ctx.interaction?.options.getInteger("role_delete");
+      const bans = ctx.interaction?.options.getInteger("bans");
+      const kicks = ctx.interaction?.options.getInteger("kicks");
+      if (channelDelete) update["nukeDetection.channelDeleteThreshold"] = channelDelete;
+      if (roleDelete) update["nukeDetection.roleDeleteThreshold"] = roleDelete;
+      if (bans) update["nukeDetection.banThreshold"] = bans;
+      if (kicks) update["nukeDetection.kickThreshold"] = kicks;
+    }
+
+    await AutoModConfig.findOneAndUpdate({ guildId: ctx.guildId }, update, { upsert: true });
+
+    return "Nuke detection " + (enabled ? "enabled" : "disabled") + ". Auto-lockdown on mass destructive actions.";
   }
 }

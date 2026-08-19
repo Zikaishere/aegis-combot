@@ -46,25 +46,32 @@ client.once("clientReady", async () => {
   client.on("guildMemberAdd", async (member) => {
     await handleGuildMemberAdd(member as any);
     await handleVerificationJoin(member as any);
+    const { checkRaid } = await import("../safety/RaidDetector.js");
+    await checkRaid(member as any);
   });
 
-  client.on("guildMemberRemove", (member) => handleGuildMemberRemove(member as any));
+  client.on("guildMemberRemove", async (member) => {
+    handleGuildMemberRemove(member as any);
+    const nuke = await import("../safety/NukeDetector.js");
+    await nuke.onKickNuke(member as any);
+  });
 
   const { handleReactionAdd, handleReactionRemove } = await import("../handlers/ReactionRoleHandler.js");
   client.on("messageReactionAdd", (reaction, user) => handleReactionAdd(reaction as any, user as any));
   client.on("messageReactionRemove", (reaction, user) => handleReactionRemove(reaction as any, user as any));
 
   const audit = await import("../handlers/AuditLogHandler.js");
+  const nuke = await import("../safety/NukeDetector.js");
   client.on("channelCreate", (channel) => audit.onChannelCreate(channel));
-  client.on("channelDelete", (channel) => audit.onChannelDelete(channel));
+  client.on("channelDelete", (channel) => { audit.onChannelDelete(channel); nuke.onChannelDeleteNuke(channel); });
   client.on("channelUpdate", (old, updated) => audit.onChannelUpdate(old, updated));
   client.on("roleCreate", (role) => audit.onRoleCreate(role));
-  client.on("roleDelete", (role) => audit.onRoleDelete(role));
+  client.on("roleDelete", (role) => { audit.onRoleDelete(role); nuke.onRoleDeleteNuke(role); });
   client.on("roleUpdate", (old, updated) => audit.onRoleUpdate(old, updated));
   client.on("guildMemberUpdate", (old, updated) => audit.onMemberUpdate(old as any, updated));
   client.on("messageDelete", (message) => audit.onMessageDelete(message as any));
   client.on("messageUpdate", (old, updated) => audit.onMessageUpdate(old as any, updated as any));
-  client.on("guildBanAdd", (ban) => audit.onBanAdd(ban));
+  client.on("guildBanAdd", (ban) => { audit.onBanAdd(ban); nuke.onBanNuke(ban); });
   client.on("guildBanRemove", (ban) => audit.onBanRemove(ban));
 });
 

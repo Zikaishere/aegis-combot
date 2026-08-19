@@ -30,6 +30,18 @@ export interface IAutoModConfig extends Document {
   aiModeration: {
     enabled: boolean;
   };
+  raidDetection: {
+    enabled: boolean;
+    threshold: number;
+    windowSeconds: number;
+  };
+  nukeDetection: {
+    enabled: boolean;
+    channelDeleteThreshold: number;
+    roleDeleteThreshold: number;
+    banThreshold: number;
+    kickThreshold: number;
+  };
   modLogChannelId: string | null;
   auditLogChannelId: string | null;
 }
@@ -60,6 +72,18 @@ const autoModConfigSchema = new Schema<IAutoModConfig>({
   },
   aiModeration: {
     enabled: { type: Boolean, default: false },
+  },
+  raidDetection: {
+    enabled: { type: Boolean, default: false },
+    threshold: { type: Number, default: 5 },
+    windowSeconds: { type: Number, default: 10 },
+  },
+  nukeDetection: {
+    enabled: { type: Boolean, default: false },
+    channelDeleteThreshold: { type: Number, default: 3 },
+    roleDeleteThreshold: { type: Number, default: 3 },
+    banThreshold: { type: Number, default: 5 },
+    kickThreshold: { type: Number, default: 5 },
   },
   modLogChannelId: { type: String, default: null },
   auditLogChannelId: { type: String, default: null },
