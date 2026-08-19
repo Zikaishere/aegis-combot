@@ -6,12 +6,18 @@ import { getPrefix } from "../../services/ConfigService.js";
 import { getAllCommands } from "../CommandBus.js";
 import { PermissionLevel, PERMISSION_LABELS } from "../../auth/PermissionLevel.js";
 
-const CATEGORY_CONFIG: Record<number, { name: string; emoji: string; color: number; desc: string }> = {
-  [PermissionLevel.None]: { name: "General", emoji: "💬", color: 0x5865f2, desc: "Commands anyone can use" },
-  [PermissionLevel.Moderator]: { name: "Moderation", emoji: "🛡️", color: 0xf59e0b, desc: "Staff moderation tools" },
-  [PermissionLevel.Administrator]: { name: "Admin", emoji: "⚙️", color: 0xef4444, desc: "Server configuration" },
-  [PermissionLevel.Owner]: { name: "Owner", emoji: "👑", color: 0x9b59b6, desc: "Bot owner only" },
+const CATEGORY_CONFIG: Record<number, { name: string; emoji: string; color: number }> = {
+  [PermissionLevel.None]: { name: "General", emoji: "💬", color: 0x5865f2 },
+  [PermissionLevel.Moderator]: { name: "Moderation", emoji: "🛡️", color: 0xf59e0b },
+  [PermissionLevel.Administrator]: { name: "Admin", emoji: "⚙️", color: 0xef4444 },
+  [PermissionLevel.Owner]: { name: "Owner", emoji: "👑", color: 0x9b59b6 },
 };
+
+interface CmdInfo {
+  name: string;
+  desc: string;
+  sub: string[];
+}
 
 export class HelpCommand extends BaseCommand {
   name = "help";
@@ -43,7 +49,7 @@ export class HelpCommand extends BaseCommand {
       ? ctx.interaction?.client.user
       : (ctx.message as any)?.client?.user;
 
-    const grouped: Map<number, { name: string; emoji: string; color: number; desc: string; cmds: { name: string; desc: string; sub: string[] }[] }> = new Map();
+    const grouped: Map<number, CmdInfo[]> = new Map();
 
     for (const [name, cmd] of commands) {
       if (cmd.ownerOnly && !isOwner) continue;
@@ -55,75 +61,64 @@ export class HelpCommand extends BaseCommand {
       if (permLevel >= PermissionLevel.Administrator && !isAdmin && !isOwner) continue;
       if (permLevel === PermissionLevel.Internal) continue;
 
-      const cat = CATEGORY_CONFIG[permLevel] || CATEGORY_CONFIG[PermissionLevel.None];
-      if (!grouped.has(permLevel)) {
-        grouped.set(permLevel, { ...cat, cmds: [] });
-      }
-
       const sub: string[] = [];
       if (cmd.slashCommand) {
         const options = (cmd.slashCommand as any).options;
         if (options?.length) {
-          const subCmds = options.filter((o: any) => o.type === 1);
-          for (const s of subCmds) {
-            sub.push(s.name);
+          for (const o of options) {
+            if (o.type === 1) sub.push(o.name);
           }
         }
       }
 
-      grouped.get(permLevel)!.cmds.push({ name, desc: cmd.description, sub });
+      if (!grouped.has(permLevel)) grouped.set(permLevel, []);
+      grouped.get(permLevel)!.push({ name, desc: cmd.description, sub });
     }
 
     const sorted = [...grouped.entries()].sort((a, b) => a[0] - b[0]);
 
+    const accentColor = sorted.length > 0
+      ? CATEGORY_CONFIG[sorted[0][0]]?.color ?? 0x5865f2
+      : 0x5865f2;
+
     const embed = new EmbedBuilder()
-      .setColor(0x5865f2)
+      .setColor(accentColor)
       .setTitle("Aegis")
       .setDescription(
         "Your community AI assistant.\n" +
-        `Use **${prefix}help <command>** for details on any command.\n` +
-        "\u200b",
+        `Type **${prefix}help <command>** to see how to use any command.`,
       );
 
     if (botUser) {
       embed.setThumbnail(botUser.displayAvatarURL());
     }
 
-    for (const [, cat] of sorted) {
-      const lines = cat.cmds.map(c => {
-        const subList = c.sub.length > 0
-          ? ` → _${c.sub.join(", ")}_`
+    for (const [permLevel, cmds] of sorted) {
+      const cat = CATEGORY_CONFIG[permLevel] || CATEGORY_CONFIG[PermissionLevel.None];
+
+      const lines = cmds.map(c => {
+        const subPreview = c.sub.length > 0
+          ? "\n      " + c.sub.map(s => `\`${s}\``).join(" · ")
           : "";
-        return `\`${prefix}${c.name}\` — ${c.desc}${subList}`;
+        return `**${prefix}${c.name}**\n      ${c.desc}${subPreview}`;
       });
 
       embed.addFields({
-        name: `${cat.emoji} ${cat.name}`,
-        value: lines.join("\n"),
+        name: `${cat.emoji} ${cat.name} \u200b`,
+        value: lines.join("\n\n"),
         inline: false,
       });
     }
 
-    const totalCmds = [...commands.values()].filter(c => {
-      const p = c.requiredPermissionLevel ?? PermissionLevel.None;
-      if (c.ownerOnly && !isOwner) return false;
-      if (p >= PermissionLevel.Owner && !isOwner) return false;
-      if (p === PermissionLevel.Internal) return false;
-      return true;
-    }).length;
+    let totalSubs = 0;
+    for (const [, cmds] of grouped) {
+      for (const c of cmds) totalSubs += c.sub.length;
+    }
 
-    const totalSubs = [...commands.values()].reduce((sum, c) => {
-      if (c.slashCommand) {
-        const options = (c.slashCommand as any).options;
-        if (options?.length) {
-          return sum + options.filter((o: any) => o.type === 1).length;
-        }
-      }
-      return sum;
-    }, 0);
+    const totalCmds = [...grouped.values()].reduce((sum, cmds) => sum + cmds.length, 0);
 
     embed.setFooter({
-      text: `${totalCmds} commands · ${totalSubs} subcommands · Aegis`,
+      text: `${totalCmds} commands · ${totalSubs} subcommands`,
     }).setTimestamp();
 
     return { embeds: [embed] };
@@ -139,10 +134,10 @@ export class HelpCommand extends BaseCommand {
       ).slice(0, 5);
 
       const hint = similar.length
-        ? ` Did you mean: ${similar.map(s => `\`${s}\``).join(", ")}?`
-        : ` Use \`${prefix}help\` to see all commands.`;
+        ? `Did you mean: ${similar.map(s => `\`${s}\``).join(", ")}?`
+        : `Use \`${prefix}help\` to see all commands.`;
 
-      return `Unknown command: \`${name}\`.` + hint;
+      return `Unknown command: \`${name}\`. ${hint}`;
     }
 
     const permLevel = cmd.requiredPermissionLevel ?? PermissionLevel.None;
@@ -173,7 +168,7 @@ export class HelpCommand extends BaseCommand {
         const subCmds = options.filter((o: any) => o.type === 1);
         if (subCmds.length) {
           const subLines = subCmds.map((s: any) =>
-            `**${s.name}** — ${s.description}`,
+            `\`${s.name}\` — ${s.description}`,
           );
 
           embed.addFields({
@@ -198,7 +193,7 @@ export class HelpCommand extends BaseCommand {
       }
     }
 
-    embed.setFooter({ text: `Aegis — Command Details` }).setTimestamp();
+    embed.setFooter({ text: "Aegis — Command Details" }).setTimestamp();
 
     return { embeds: [embed] };
   }
