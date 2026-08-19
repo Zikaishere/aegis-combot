@@ -6,17 +6,18 @@ import { getPrefix } from "../../services/ConfigService.js";
 import { getAllCommands } from "../CommandBus.js";
 import { PermissionLevel, PERMISSION_LABELS } from "../../auth/PermissionLevel.js";
 
-const CATEGORY_CONFIG: Record<number, { name: string; emoji: string; color: number }> = {
-  [PermissionLevel.None]: { name: "General", emoji: "💬", color: 0x5865f2 },
-  [PermissionLevel.Moderator]: { name: "Moderation", emoji: "🛡️", color: 0xf59e0b },
-  [PermissionLevel.Administrator]: { name: "Admin", emoji: "⚙️", color: 0xef4444 },
-  [PermissionLevel.Owner]: { name: "Owner", emoji: "👑", color: 0x9b59b6 },
+const CATEGORY_CONFIG: Record<number, { name: string; emoji: string; color: number; keywords: string[] }> = {
+  [PermissionLevel.None]: { name: "General", emoji: "💬", color: 0x5865f2, keywords: ["general"] },
+  [PermissionLevel.Moderator]: { name: "Moderation", emoji: "🛡️", color: 0xf59e0b, keywords: ["mod", "moderation", "staff"] },
+  [PermissionLevel.Administrator]: { name: "Admin", emoji: "⚙️", color: 0xef4444, keywords: ["admin", "setup", "config", "configuration"] },
+  [PermissionLevel.Owner]: { name: "Owner", emoji: "👑", color: 0x9b59b6, keywords: ["owner"] },
 };
 
 interface CmdInfo {
   name: string;
   desc: string;
-  sub: string[];
+  permLevel: number;
+  sub: { name: string; desc: string }[];
 }
 
 export class HelpCommand extends BaseCommand {
@@ -27,7 +28,7 @@ export class HelpCommand extends BaseCommand {
     .setName("help")
     .setDescription("Show all commands and usage")
     .addStringOption(opt =>
-      opt.setName("command").setDescription("Get details on a specific command"),
+      opt.setName("query").setDescription("Category name or command name"),
     );
 
   async run(ctx: CommandContext) {
@@ -36,22 +37,35 @@ export class HelpCommand extends BaseCommand {
     const isMod = await this.isModerator(ctx);
     const isAdmin = await this.isAdmin(ctx);
 
-    const specificCmd = ctx.type === "slash"
-      ? ctx.interaction?.options.getString("command")
+    const query = ctx.type === "slash"
+      ? ctx.interaction?.options.getString("query")
       : ctx.args[0];
 
-    if (specificCmd) {
-      return this.showCommand(ctx, specificCmd, prefix);
+    if (!query) return this.showOverview(ctx, prefix, isOwner, isMod, isAdmin);
+
+    const catPerm = this.resolveCategory(query);
+    if (catPerm !== null) {
+      return this.showCategory(ctx, prefix, catPerm, isOwner, isMod, isAdmin);
     }
 
+    return this.showCommand(ctx, query, prefix);
+  }
+
+  private resolveCategory(query: string): number | null {
+    const lower = query.toLowerCase();
+    for (const [perm, cat] of Object.entries(CATEGORY_CONFIG)) {
+      if (cat.keywords.some(k => lower === k || lower.startsWith(k))) {
+        return Number(perm);
+      }
+    }
+    return null;
+  }
+
+  private getVisibleCommands(isOwner: boolean, isMod: boolean, isAdmin: boolean): CmdInfo[] {
     const commands = getAllCommands();
-    const botUser = ctx.type === "slash"
-      ? ctx.interaction?.client.user
-      : (ctx.message as any)?.client?.user;
+    const result: CmdInfo[] = [];
 
-    const grouped: Map<number, CmdInfo[]> = new Map();
-
-    for (const [name, cmd] of commands) {
+    for (const [, cmd] of commands) {
       if (cmd.ownerOnly && !isOwner) continue;
 
       const permLevel = cmd.requiredPermissionLevel ?? PermissionLevel.None;
@@ -61,65 +75,88 @@ export class HelpCommand extends BaseCommand {
       if (permLevel >= PermissionLevel.Administrator && !isAdmin && !isOwner) continue;
       if (permLevel === PermissionLevel.Internal) continue;
 
-      const sub: string[] = [];
+      const sub: { name: string; desc: string }[] = [];
       if (cmd.slashCommand) {
         const options = (cmd.slashCommand as any).options;
         if (options?.length) {
           for (const o of options) {
-            if (o.type === 1) sub.push(o.name);
+            if (o.type === 1) sub.push({ name: o.name, desc: o.description });
           }
         }
       }
 
-      if (!grouped.has(permLevel)) grouped.set(permLevel, []);
-      grouped.get(permLevel)!.push({ name, desc: cmd.description, sub });
+      result.push({ name: cmd.name, desc: cmd.description, permLevel, sub });
+    }
+
+    return result;
+  }
+
+  private async showOverview(ctx: CommandContext, prefix: string, isOwner: boolean, isMod: boolean, isAdmin: boolean) {
+    const cmds = this.getVisibleCommands(isOwner, isMod, isAdmin);
+    const botUser = ctx.type === "slash"
+      ? ctx.interaction?.client.user
+      : (ctx.message as any)?.client?.user;
+
+    const grouped = new Map<number, CmdInfo[]>();
+    for (const cmd of cmds) {
+      if (!grouped.has(cmd.permLevel)) grouped.set(cmd.permLevel, []);
+      grouped.get(cmd.permLevel)!.push(cmd);
     }
 
     const sorted = [...grouped.entries()].sort((a, b) => a[0] - b[0]);
 
-    const accentColor = sorted.length > 0
-      ? CATEGORY_CONFIG[sorted[0][0]]?.color ?? 0x5865f2
-      : 0x5865f2;
-
     const embed = new EmbedBuilder()
-      .setColor(accentColor)
+      .setColor(0x5865f2)
       .setTitle("Aegis")
       .setDescription(
-        "Your community AI assistant.\n" +
-        `Type **${prefix}help <command>** to see how to use any command.`,
+        "Your community AI assistant.\n\n" +
+        "Use **" + prefix + "help <category>** to browse a category\n" +
+        "Use **" + prefix + "help <command>** to see command details",
       );
 
-    if (botUser) {
-      embed.setThumbnail(botUser.displayAvatarURL());
-    }
+    if (botUser) embed.setThumbnail(botUser.displayAvatarURL());
 
-    for (const [permLevel, cmds] of sorted) {
+    for (const [permLevel, catCmds] of sorted) {
       const cat = CATEGORY_CONFIG[permLevel] || CATEGORY_CONFIG[PermissionLevel.None];
+      const keywords = cat.keywords.slice(0, 2).join(" / ");
 
-      const lines = cmds.map(c => {
-        const subPreview = c.sub.length > 0
-          ? "\n      " + c.sub.map(s => `\`${s}\``).join(" · ")
-          : "";
-        return `**${prefix}${c.name}**\n      ${c.desc}${subPreview}`;
-      });
+      const lines = catCmds.map(c => `\`${prefix}${c.name}\` — ${c.desc}`);
 
       embed.addFields({
-        name: `${cat.emoji} ${cat.name} \u200b`,
-        value: lines.join("\n\n"),
+        name: `${cat.emoji} ${cat.name}`,
+        value: lines.join("\n") + `\n\n*Type \`${prefix}help ${keywords}\` to expand*`,
         inline: false,
       });
     }
 
-    let totalSubs = 0;
-    for (const [, cmds] of grouped) {
-      for (const c of cmds) totalSubs += c.sub.length;
+    const totalSubs = cmds.reduce((sum, c) => sum + c.sub.length, 0);
+    embed.setFooter({ text: `${cmds.length} commands · ${totalSubs} subcommands` }).setTimestamp();
+
+    return { embeds: [embed] };
+  }
+
+  private async showCategory(ctx: CommandContext, prefix: string, permLevel: number, isOwner: boolean, isMod: boolean, isAdmin: boolean) {
+    const cmds = this.getVisibleCommands(isOwner, isMod, isAdmin).filter(c => c.permLevel === permLevel);
+    const cat = CATEGORY_CONFIG[permLevel] || CATEGORY_CONFIG[PermissionLevel.None];
+
+    if (cmds.length === 0) {
+      return `No commands available in the **${cat.name}** category.`;
     }
 
-    const totalCmds = [...grouped.values()].reduce((sum, cmds) => sum + cmds.length, 0);
+    const embed = new EmbedBuilder()
+      .setColor(cat.color)
+      .setTitle(`${cat.emoji} ${cat.name}`)
+      .setDescription(`All commands in the **${cat.name}** category.`);
 
-    embed.setFooter({
-      text: `${totalCmds} commands · ${totalSubs} subcommands`,
-    }).setTimestamp();
+    for (const cmd of cmds) {
+      let value = cmd.desc;
+      if (cmd.sub.length > 0) {
+        value += "\n" + cmd.sub.map(s => `> \`${s.name}\` — ${s.desc}`).join("\n");
+      }
+      embed.addFields({ name: `${prefix}${cmd.name}`, value, inline: false });
+    }
+
+    embed.setFooter({ text: `${cmds.length} commands · ${prefix}help <command> for details` }).setTimestamp();
 
     return { embeds: [embed] };
   }
@@ -167,26 +204,20 @@ export class HelpCommand extends BaseCommand {
       if (options?.length) {
         const subCmds = options.filter((o: any) => o.type === 1);
         if (subCmds.length) {
-          const subLines = subCmds.map((s: any) =>
-            `\`${s.name}\` — ${s.description}`,
-          );
-
           embed.addFields({
             name: "Subcommands",
-            value: subLines.join("\n"),
+            value: subCmds.map((s: any) => `\`${s.name}\` — ${s.description}`).join("\n"),
             inline: false,
           });
         }
 
         const opts = options.filter((o: any) => o.type !== 1 && o.type !== 2);
         if (opts.length) {
-          const optLines = opts.map((o: any) =>
-            `\`${o.name}\`${o.required ? " *(required)*" : ""} — ${o.description || "No description"}`,
-          );
-
           embed.addFields({
             name: "Options",
-            value: optLines.join("\n"),
+            value: opts.map((o: any) =>
+              `\`${o.name}\`${o.required ? " *(required)*" : ""} — ${o.description || "No description"}`,
+            ).join("\n"),
             inline: false,
           });
         }
