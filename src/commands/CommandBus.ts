@@ -28,6 +28,7 @@ import { LockdownCommand } from "./mod/LockdownCommand.js";
 import { BansCommand } from "./mod/BansCommand.js";
 import { SetupCommand } from "./setup/SetupCommand.js";
 import { DataCommand } from "./data/DataCommand.js";
+import { TempVCCommand } from "./tempvc/TempVCCommand.js";
 import { handleStatsPrefix, handleStatsSlash } from "../telemetry/commands.js";
 
 const commands: Map<string, ICommand> = new Map();
@@ -68,6 +69,7 @@ register(new LockdownCommand());
 register(new BansCommand());
 register(new SetupCommand());
 register(new DataCommand());
+register(new TempVCCommand());
 
 export function getAllCommands(): Map<string, ICommand> {
   return new Map(commands);
