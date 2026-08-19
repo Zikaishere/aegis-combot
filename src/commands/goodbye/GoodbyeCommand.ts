@@ -12,54 +12,45 @@ function replaceVars(text: string, vars: Record<string, string>): string {
   return result;
 }
 
-export { replaceVars };
-
-export class WelcomeCommand extends BaseCommand {
-  name = "welcome";
-  description = "Configure welcome messages";
+export class GoodbyeCommand extends BaseCommand {
+  name = "goodbye";
+  description = "Configure goodbye messages";
   requiredPermissionLevel = PermissionLevel.Administrator;
   requiredPermissions = [PermissionFlagsBits.ManageGuild];
 
   slashCommand = new SlashCommandBuilder()
-    .setName("welcome")
-    .setDescription("Configure welcome messages")
+    .setName("goodbye")
+    .setDescription("Configure goodbye messages")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addSubcommand(sub =>
-      sub.setName("config").setDescription("View current welcome configuration"),
+      sub.setName("config").setDescription("View current goodbye configuration"),
     )
     .addSubcommand(sub =>
       sub
         .setName("channel")
-        .setDescription("Set the welcome channel")
+        .setDescription("Set the goodbye channel")
         .addChannelOption(opt =>
-          opt.setName("channel").setDescription("Welcome channel").addChannelTypes(ChannelType.GuildText).setRequired(true),
+          opt.setName("channel").setDescription("Goodbye channel").addChannelTypes(ChannelType.GuildText).setRequired(true),
         ),
     )
     .addSubcommand(sub =>
       sub
         .setName("toggle")
-        .setDescription("Enable or disable welcome messages")
+        .setDescription("Enable or disable goodbye messages")
         .addBooleanOption(opt => opt.setName("enabled").setDescription("Enable or disable").setRequired(true)),
     )
     .addSubcommand(sub =>
       sub
         .setName("embed")
-        .setDescription("Set the welcome embed")
+        .setDescription("Set the goodbye embed")
         .addStringOption(opt => opt.setName("title").setDescription("Embed title"))
         .addStringOption(opt => opt.setName("description").setDescription("Embed description. Use {user}, {server}, {membercount}"))
-        .addStringOption(opt => opt.setName("color").setDescription("Hex color (e.g. 2ecc71)"))
+        .addStringOption(opt => opt.setName("color").setDescription("Hex color (e.g. ff1744)"))
         .addStringOption(opt => opt.setName("image").setDescription("Image URL"))
         .addStringOption(opt => opt.setName("footer").setDescription("Footer text")),
     )
     .addSubcommand(sub =>
-      sub
-        .setName("autorole")
-        .setDescription("Auto-assign roles on join")
-        .addBooleanOption(opt => opt.setName("enabled").setDescription("Enable or disable").setRequired(true))
-        .addStringOption(opt => opt.setName("roles").setDescription("Role names or IDs (comma-separated)")),
-    )
-    .addSubcommand(sub =>
-      sub.setName("test").setDescription("Test the welcome message"),
+      sub.setName("test").setDescription("Test the goodbye message"),
     );
 
   async run(ctx: CommandContext): Promise<string | { embeds: any[] }> {
@@ -75,7 +66,6 @@ export class WelcomeCommand extends BaseCommand {
       case "channel": return this.handleChannel(ctx);
       case "toggle": return this.handleToggle(ctx);
       case "embed": return this.handleEmbed(ctx);
-      case "autorole": return this.handleAutoRole(ctx);
       case "test": return this.handleTest(ctx);
       default: return "Unknown subcommand.";
     }
@@ -89,21 +79,20 @@ export class WelcomeCommand extends BaseCommand {
 
   private async handleConfig(ctx: CommandContext): Promise<{ embeds: any[] }> {
     const config = await this.getConfig(ctx.guildId!);
-    const w = config.welcome;
+    const g = config.goodbye;
 
     return {
       embeds: [
         new EmbedBuilder()
-          .setColor(0x00b4d8)
-          .setTitle("Welcome Configuration")
+          .setColor(0xff1744)
+          .setTitle("Goodbye Configuration")
           .addFields(
-            { name: "Status", value: w.enabled ? "Enabled" : "Disabled", inline: true },
-            { name: "Channel", value: w.channelId ? `<#${w.channelId}>` : "Not set", inline: true },
-            { name: "Title", value: w.embed.title || "Default", inline: true },
-            { name: "Auto Role", value: `Enabled: ${config.autoRole.enabled ? "Yes" : "No"}\nRoles: ${config.autoRole.roleIds.length ? config.autoRole.roleIds.map(id => `<@&${id}>`).join(", ") : "None"}`, inline: false },
-            { name: "Variables", value: `{user} — mention the user\n{username} — username\n{server} — server name\n{membercount} — member count`, inline: false },
+            { name: "Status", value: g.enabled ? "Enabled" : "Disabled", inline: true },
+            { name: "Channel", value: g.channelId ? `<#${g.channelId}>` : "Not set", inline: true },
+            { name: "Title", value: g.embed.title || "Default", inline: true },
+            { name: "Variables", value: `{user} — username\n{server} — server name\n{membercount} — member count`, inline: false },
           )
-          .setFooter({ text: "Aegis — Welcome System" })
+          .setFooter({ text: "Aegis — Goodbye System" })
           .setTimestamp(),
       ],
     };
@@ -117,10 +106,10 @@ export class WelcomeCommand extends BaseCommand {
     if (!channel) return "Mention a channel.";
 
     const config = await this.getConfig(ctx.guildId!);
-    config.welcome.channelId = channel.id;
+    config.goodbye.channelId = channel.id;
     await config.save();
 
-    return `Welcome channel set to <#${channel.id}>.`;
+    return `Goodbye channel set to <#${channel.id}>.`;
   }
 
   private async handleToggle(ctx: CommandContext): Promise<string> {
@@ -131,17 +120,17 @@ export class WelcomeCommand extends BaseCommand {
     if (enabled === null) return "Provide `true` or `false`.";
 
     const config = await this.getConfig(ctx.guildId!);
-    config.welcome.enabled = !!enabled;
+    config.goodbye.enabled = !!enabled;
     await config.save();
 
-    return `Welcome ${enabled ? "enabled" : "disabled"}.`;
+    return `Goodbye ${enabled ? "enabled" : "disabled"}.`;
   }
 
   private async handleEmbed(ctx: CommandContext): Promise<string> {
     if (ctx.type !== "slash") return "Use the slash command for this.";
 
     const config = await this.getConfig(ctx.guildId!);
-    const section = config.welcome;
+    const section = config.goodbye;
 
     const title = ctx.interaction?.options.getString("title");
     const description = ctx.interaction?.options.getString("description");
@@ -151,49 +140,27 @@ export class WelcomeCommand extends BaseCommand {
 
     if (title) section.embed.title = title;
     if (description) section.embed.description = description;
-    if (color) section.embed.color = parseInt(color, 16) || 0x2ecc71;
+    if (color) section.embed.color = parseInt(color, 16) || 0xff1744;
     if (image) section.embed.imageUrl = image;
     if (footer) section.embed.footer = footer;
 
     await config.save();
-    return "Welcome embed updated.";
-  }
-
-  private async handleAutoRole(ctx: CommandContext): Promise<string> {
-    const enabled = ctx.type === "slash"
-      ? ctx.interaction?.options.getBoolean("enabled", true)
-      : ctx.args[1] === "true";
-    const rolesStr = ctx.type === "slash"
-      ? ctx.interaction?.options.getString("roles")
-      : ctx.args.slice(2).join(" ");
-
-    if (enabled === null) return "Provide `true` or `false`.";
-
-    const config = await this.getConfig(ctx.guildId!);
-    config.autoRole.enabled = !!enabled;
-
-    if (rolesStr) {
-      const roleIds = rolesStr.split(",").map(r => r.trim().replace(/[<@&>]/g, "")).filter(Boolean);
-      config.autoRole.roleIds = roleIds;
-    }
-
-    await config.save();
-    return `Auto-role ${enabled ? "enabled" : "disabled"}. Roles: ${config.autoRole.roleIds.length ? config.autoRole.roleIds.map(id => `<@&${id}>`).join(", ") : "None"}`;
+    return "Goodbye embed updated.";
   }
 
   private async handleTest(ctx: CommandContext): Promise<string | { embeds: any[] }> {
     const config = await this.getConfig(ctx.guildId!);
-    const section = config.welcome;
+    const section = config.goodbye;
 
     const vars = {
-      user: `<@${ctx.userId}>`,
+      user: ctx.interaction?.user.username ?? (ctx.message as any)?.author?.username ?? "Unknown",
       username: ctx.interaction?.user.username ?? (ctx.message as any)?.author?.username ?? "Unknown",
       server: (ctx.interaction?.guild ?? ctx.message?.guild)?.name || "Server",
       membercount: String((ctx.interaction?.guild ?? ctx.message?.guild)?.memberCount || 0),
     };
 
     const embed = new EmbedBuilder()
-      .setColor(section.embed.color || 0x2ecc71);
+      .setColor(section.embed.color || 0xff1744);
 
     if (section.embed.title) embed.setTitle(replaceVars(section.embed.title, vars));
     if (section.embed.description) embed.setDescription(replaceVars(section.embed.description, vars));
@@ -201,8 +168,8 @@ export class WelcomeCommand extends BaseCommand {
     if (section.embed.thumbnailUrl) embed.setThumbnail(section.embed.thumbnailUrl);
     if (section.embed.footer) embed.setFooter({ text: replaceVars(section.embed.footer, vars) });
     if (!section.embed.title && !section.embed.description) {
-      embed.setTitle("Welcome!");
-      embed.setDescription(replaceVars("Welcome to {server}, {user}! You are member #{membercount}.", vars));
+      embed.setTitle("Goodbye!");
+      embed.setDescription(replaceVars("Farewell, {user}! We'll miss you.", vars));
     }
 
     return { embeds: [embed] };
