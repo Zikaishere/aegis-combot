@@ -164,7 +164,7 @@ export class VerifyCommand extends BaseCommand {
 
   private async handleTest(ctx: CommandContext): Promise<string> {
     const config = await this.getConfig(ctx.guildId!);
-    const guildName = ctx.message.guild?.name || "Server";
+    const guildName = (ctx.interaction?.guild ?? ctx.message?.guild)?.name || "Server";
     const code = "123456";
 
     const dmText = config.dmMessage
@@ -172,7 +172,8 @@ export class VerifyCommand extends BaseCommand {
       .replaceAll("{code}", `**${code}**`);
 
     try {
-      await ctx.message.author.send(dmText);
+      const dmTarget = ctx.interaction?.user ?? ctx.message.author;
+      await dmTarget.send(dmText);
       return "Verification DM sent! Check your DMs.";
     } catch {
       return "I can't DM you. Make sure your DMs are open.";
@@ -190,7 +191,7 @@ export class VerifyCommand extends BaseCommand {
     const config = await this.getConfig(ctx.guildId);
     if (!config.verifiedRoleId) return "No verified role configured. Run `/verify setup` first.";
 
-    const member = await ctx.message.guild?.members.fetch(user.id).catch(() => null);
+    const member = await (ctx.interaction?.guild ?? ctx.message?.guild)?.members.fetch(user.id).catch(() => null);
     if (!member) return "User not found.";
 
     await member.roles.add(config.verifiedRoleId).catch(() => {

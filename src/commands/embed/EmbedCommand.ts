@@ -147,10 +147,11 @@ export class EmbedCommand extends BaseCommand {
     const data = this.parseEmbedJson(raw);
     if (!data) return "Invalid JSON. Please provide a valid JSON object.";
 
-    const channel = await ctx.message.guild?.channels.fetch(channelId);
+    const guild = ctx.interaction?.guild ?? ctx.message?.guild;
+    const channel = await guild?.channels.fetch(channelId);
     if (!channel || !channel.isTextBased()) return "Invalid channel. Must be a text channel.";
 
-    const botPerms = (channel as any).permissionsFor?.(ctx.message.guild?.members?.me);
+    const botPerms = (channel as any).permissionsFor?.(guild?.members?.me);
     if (!botPerms?.has(PermissionFlagsBits.SendMessages) || !botPerms?.has(PermissionFlagsBits.EmbedLinks)) {
       return "I don't have permission to send embeds in that channel.";
     }

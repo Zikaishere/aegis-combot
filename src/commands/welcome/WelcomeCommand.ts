@@ -221,9 +221,9 @@ export class WelcomeCommand extends BaseCommand {
 
     const vars = {
       user: `<@${ctx.userId}>`,
-      username: ctx.message.author.username,
-      server: ctx.message.guild?.name || "Server",
-      membercount: String(ctx.message.guild?.memberCount || 0),
+      username: ctx.interaction?.user.username ?? (ctx.message as any)?.author?.username ?? "Unknown",
+      server: (ctx.interaction?.guild ?? ctx.message?.guild)?.name || "Server",
+      membercount: String((ctx.interaction?.guild ?? ctx.message?.guild)?.memberCount || 0),
     };
 
     const embed = new EmbedBuilder()

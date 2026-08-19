@@ -33,11 +33,12 @@ export class BanCommand extends BaseCommand {
 
     if (!user) return "Mention a user to ban.";
 
-    const member = await ctx.message.guild?.members.fetch(user.id).catch(() => null);
+    const guild = ctx.interaction?.guild ?? ctx.message?.guild;
+    const member = await guild?.members.fetch(user.id).catch(() => null);
     if (!member) return "User not found in this server.";
     if (!member.bannable) return "I cannot ban this user. They may have a higher role than me.";
 
-    const issuer = await ctx.message.guild?.members.fetch(ctx.userId);
+    const issuer = await guild?.members.fetch(ctx.userId);
     if (issuer && member.roles.highest.position >= issuer.roles.highest.position) {
       return "You cannot ban a user with an equal or higher role.";
     }

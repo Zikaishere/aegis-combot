@@ -27,7 +27,7 @@ export class ModLogCommand extends BaseCommand {
 
     if (!ctx.guildId) return "This command can only be used in a server.";
 
-    const channel = await ctx.message.guild?.channels.fetch(channelId);
+    const channel = await (ctx.interaction?.guild ?? ctx.message?.guild)?.channels.fetch(channelId);
     if (!channel || !channel.isTextBased()) return "Must be a text channel.";
 
     await AutoModConfig.findOneAndUpdate(

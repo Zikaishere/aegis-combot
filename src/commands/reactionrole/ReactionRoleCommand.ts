@@ -112,7 +112,7 @@ export class ReactionRoleCommand extends BaseCommand {
     const roles = this.parseRoles(rolesStr || "");
     if (roles.length === 0) return "No valid emoji → role pairs found. Format: `🔴 Role Name, 🔵 Role Name`";
 
-    const botPerms = (channel as any).permissionsFor?.(ctx.message.guild?.members?.me);
+    const botPerms = (channel as any).permissionsFor?.((ctx.interaction?.guild ?? ctx.message?.guild)?.members?.me);
     if (!botPerms?.has(PermissionFlagsBits.SendMessages) || !botPerms?.has(PermissionFlagsBits.EmbedLinks)) {
       return "I don't have permission to send embeds in that channel.";
     }
@@ -165,7 +165,7 @@ export class ReactionRoleCommand extends BaseCommand {
     (rr.roles as any).push({ emoji, roleId, label: roleName });
     await rr.save();
 
-    const channel = await ctx.message.guild?.channels.fetch(rr.channelId);
+    const channel = await (ctx.interaction?.guild ?? ctx.message?.guild)?.channels.fetch(rr.channelId);
     if (channel && "send" in channel) {
       const msg = await (channel as any).messages.fetch(messageId).catch(() => null);
       if (msg) await msg.react(emoji).catch(() => {});
@@ -229,7 +229,7 @@ export class ReactionRoleCommand extends BaseCommand {
     const rr = await ReactionRole.findOneAndDelete({ guildId: ctx.guildId, messageId });
     if (!rr) return "Reaction role message not found.";
 
-    const channel = await ctx.message.guild?.channels.fetch(rr.channelId);
+    const channel = await (ctx.interaction?.guild ?? ctx.message?.guild)?.channels.fetch(rr.channelId);
     if (channel && "messages" in channel) {
       await (channel as any).messages.fetch(messageId).then((m: any) => m.delete()).catch(() => {});
     }

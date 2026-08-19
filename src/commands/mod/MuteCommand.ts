@@ -61,11 +61,12 @@ export class MuteCommand extends BaseCommand {
       return "Invalid duration. Must be between 1m and 28d. Formats: `10m`, `2h`, `1d`.";
     }
 
-    const member = await ctx.message.guild?.members.fetch(user.id).catch(() => null);
+    const guild = ctx.interaction?.guild ?? ctx.message?.guild;
+    const member = await guild?.members.fetch(user.id).catch(() => null);
     if (!member) return "User not found in this server.";
     if (!member.moderatable) return "I cannot mute this user. They may have a higher role than me.";
 
-    const issuer = await ctx.message.guild?.members.fetch(ctx.userId);
+    const issuer = await guild?.members.fetch(ctx.userId);
     if (issuer && member.roles.highest.position >= issuer.roles.highest.position) {
       return "You cannot mute a user with an equal or higher role.";
     }
