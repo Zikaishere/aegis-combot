@@ -6,16 +6,16 @@ import AutoModConfig from "../../models/AutoModConfig.js";
 
 export class ModLogCommand extends BaseCommand {
   name = "modlog";
-  description = "Set the moderation log channel";
-  requiredPermissionLevel = PermissionLevel.Administrator;
-  requiredPermissions = [PermissionFlagsBits.ManageGuild];
+  description = "Set the moderation log channel (bans, kicks, mutes, warns, automod)";
+  requiredPermissionLevel = PermissionLevel.Moderator;
+  requiredPermissions = [PermissionFlagsBits.KickMembers];
 
   slashCommand = new SlashCommandBuilder()
     .setName("modlog")
     .setDescription("Set the moderation log channel")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers)
     .addChannelOption(opt =>
-      opt.setName("channel").setDescription("Channel for mod logs").setRequired(true),
+      opt.setName("channel").setDescription("Channel for mod action logs").setRequired(true),
     );
 
   async run(ctx: CommandContext): Promise<string> {

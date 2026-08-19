@@ -174,6 +174,7 @@ export class AutoModCommand extends BaseCommand {
             { name: "Exempt Channels", value: exemptList, inline: false },
             { name: "AI Moderation", value: config.aiModeration?.enabled ? "On (context-aware)" : "Off", inline: true },
             { name: "Mod Log", value: config.modLogChannelId ? `<#${config.modLogChannelId}>` : "Not set", inline: true },
+            { name: "Audit Log", value: config.auditLogChannelId ? `<#${config.auditLogChannelId}>` : "Not set", inline: true },
           )
           .setFooter({ text: "Aegis — Auto-Moderation" })
           .setTimestamp(),

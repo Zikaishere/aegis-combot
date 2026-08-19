@@ -31,6 +31,7 @@ export interface IAutoModConfig extends Document {
     enabled: boolean;
   };
   modLogChannelId: string | null;
+  auditLogChannelId: string | null;
 }
 
 const autoModConfigSchema = new Schema<IAutoModConfig>({
@@ -61,6 +62,7 @@ const autoModConfigSchema = new Schema<IAutoModConfig>({
     enabled: { type: Boolean, default: false },
   },
   modLogChannelId: { type: String, default: null },
+  auditLogChannelId: { type: String, default: null },
 });
 
 const AutoModConfig = mongoose.model<IAutoModConfig>("AutoModConfig", autoModConfigSchema);

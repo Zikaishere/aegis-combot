@@ -6,13 +6,13 @@ import AuditLogEntry from "../../models/AuditLogEntry.js";
 
 export class AuditLogCommand extends BaseCommand {
   name = "auditlog";
-  description = "Configure and view the audit log";
+  description = "Server event log (channel/role changes, message edits, bans)";
   requiredPermissionLevel = PermissionLevel.Moderator;
   requiredPermissions = [PermissionFlagsBits.ViewAuditLog];
 
   slashCommand = new SlashCommandBuilder()
     .setName("auditlog")
-    .setDescription("Audit log")
+    .setDescription("Server event log")
     .setDefaultMemberPermissions(PermissionFlagsBits.ViewAuditLog)
     .addSubcommand(sub =>
       sub
@@ -68,11 +68,11 @@ export class AuditLogCommand extends BaseCommand {
     const AutoModConfig = (await import("../../models/AutoModConfig.js")).default;
     await AutoModConfig.findOneAndUpdate(
       { guildId: ctx.guildId },
-      { modLogChannelId: channelId },
+      { auditLogChannelId: channelId },
       { upsert: true },
     );
 
-    return `Audit log channel set to <#${channelId}>. Also used as mod log.`;
+    return `Audit log channel set to <#${channelId}>.`;
   }
 
   private async handleView(ctx: CommandContext): Promise<{ embeds: any[] }> {
@@ -130,7 +130,7 @@ export class AuditLogCommand extends BaseCommand {
           .setColor(0x00b4d8)
           .setTitle("Audit Log Configuration")
           .addFields(
-            { name: "Log Channel", value: config?.modLogChannelId ? `<#${config.modLogChannelId}>` : "Not set", inline: true },
+            { name: "Audit Log Channel", value: config?.auditLogChannelId ? `<#${config.auditLogChannelId}>` : "Not set", inline: true },
           )
           .setFooter({ text: "Aegis — Audit Log" })
           .setTimestamp(),

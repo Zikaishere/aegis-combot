@@ -5,8 +5,9 @@ import AutoModConfig from "../models/AutoModConfig.js";
 
 async function getLogChannel(guild: Guild): Promise<TextChannel | null> {
   const config = await AutoModConfig.findOne({ guildId: guild.id });
-  if (!config?.modLogChannelId) return null;
-  const channel = await guild.channels.fetch(config.modLogChannelId).catch(() => null);
+  const channelId = config?.auditLogChannelId;
+  if (!channelId) return null;
+  const channel = await guild.channels.fetch(channelId).catch(() => null);
   if (channel && channel.isTextBased()) return channel as TextChannel;
   return null;
 }
