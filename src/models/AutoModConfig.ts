@@ -27,6 +27,9 @@ export interface IAutoModConfig extends Document {
     customMedium: string[];
     customSevere: string[];
   };
+  aiModeration: {
+    enabled: boolean;
+  };
   modLogChannelId: string | null;
 }
 
@@ -53,6 +56,9 @@ const autoModConfigSchema = new Schema<IAutoModConfig>({
     customMild: { type: [String], default: [] },
     customMedium: { type: [String], default: [] },
     customSevere: { type: [String], default: [] },
+  },
+  aiModeration: {
+    enabled: { type: Boolean, default: false },
   },
   modLogChannelId: { type: String, default: null },
 });

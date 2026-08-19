@@ -2,6 +2,7 @@ import type { Message } from "discord.js";
 import AutoModConfig from "../models/AutoModConfig.js";
 import Warning from "../models/Warning.js";
 import { logModAction } from "../commands/mod/ModLogService.js";
+import { aiModerate } from "./AIAutoMod.js";
 
 const messageTimestamps = new Map<string, number[]>();
 
@@ -63,6 +64,14 @@ export async function handleAutoMod(message: Message): Promise<boolean> {
   if (config.profanityFilter.enabled && !actionTaken) {
     const profanityResult = await checkProfanity(message, config);
     if (profanityResult) actionTaken = true;
+  }
+
+  if (!actionTaken && config.aiModeration?.enabled) {
+    const aiResult = await aiModerate(message);
+    if (aiResult) {
+      await takeAction(message, aiResult.action, aiResult.reason);
+      actionTaken = true;
+    }
   }
 
   return actionTaken;

@@ -113,6 +113,12 @@ export class AutoModCommand extends BaseCommand {
         )
         .addChannelOption(opt => opt.setName("channel").setDescription("Channel to exempt"))
         .addStringOption(opt => opt.setName("channels").setDescription("Channel IDs to exempt (comma-separated, for bulk add/remove)")),
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName("ai")
+        .setDescription("Configure AI-powered moderation (catches context-dependent violations)")
+        .addBooleanOption(opt => opt.setName("enabled").setDescription("Enable or disable AI moderation").setRequired(true)),
     );
 
   async run(ctx: CommandContext): Promise<string | { embeds: any[] }> {
@@ -130,6 +136,7 @@ export class AutoModCommand extends BaseCommand {
       case "links": return this.handleLinks(ctx);
       case "profanity": return this.handleProfanity(ctx);
       case "exempt": return this.handleExempt(ctx);
+      case "ai": return this.handleAI(ctx);
       default: return "Unknown subcommand.";
     }
   }
@@ -165,6 +172,7 @@ export class AutoModCommand extends BaseCommand {
             { name: "Link Filter", value: config.linkFilter.enabled ? `On (${config.linkFilter.whitelist.length} whitelisted → ${config.linkFilter.action})` : "Off", inline: true },
             { name: "Profanity Filter", value: profanityStatus, inline: false },
             { name: "Exempt Channels", value: exemptList, inline: false },
+            { name: "AI Moderation", value: config.aiModeration?.enabled ? "On (context-aware)" : "Off", inline: true },
             { name: "Mod Log", value: config.modLogChannelId ? `<#${config.modLogChannelId}>` : "Not set", inline: true },
           )
           .setFooter({ text: "Aegis — Auto-Moderation" })
@@ -335,5 +343,21 @@ export class AutoModCommand extends BaseCommand {
       default:
         return "Unknown action. Use `add`, `remove`, or `list`.";
     }
+  }
+
+  private async handleAI(ctx: CommandContext): Promise<string> {
+    const enabled = ctx.type === "slash"
+      ? ctx.interaction?.options.getBoolean("enabled", true)
+      : ctx.args[1] === "true";
+
+    if (enabled === null || enabled === undefined) return "Provide `enabled true/false`.";
+
+    await AutoModConfig.findOneAndUpdate(
+      { guildId: ctx.guildId },
+      { "aiModeration.enabled": enabled },
+      { upsert: true },
+    );
+
+    return "AI moderation " + (enabled ? "enabled" : "disabled") + ". Messages with suspicious patterns will be analyzed by AI for context-dependent violations.";
   }
 }
