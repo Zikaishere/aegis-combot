@@ -34,6 +34,10 @@ export async function handleConversation(message: Message): Promise<boolean> {
 
   if (!config.aiEnabled) return false;
 
+  if (config.allowedChannels.length > 0 && !config.allowedChannels.includes(message.channel.id)) {
+    return false;
+  }
+
   const rawContent = message.content.trim().toUpperCase();
   if (rawContent === "CONFIRM" || rawContent === "CANCEL") {
     const pending = hasPendingConfirmation(context.userId);

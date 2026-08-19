@@ -7,7 +7,7 @@ if (process.env.AUTO_UPDATE === '1') {
     
     if (!fs.existsSync('.git')) {
       console.log('Initializing git repository...');
-      execSync('git init && git remote add origin https://github.com/Zikaishere/blaze-veil', { stdio: 'inherit' });
+      execSync('git init && git remote add origin https://github.com/Zikaishere/aegis-combot', { stdio: 'inherit' });
     }
     
     execSync('git fetch origin main && git reset --hard origin/main', { stdio: 'inherit' });

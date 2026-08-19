@@ -25,7 +25,7 @@ export const env: EnvConfig = {
   mongoUri: requireEnv("MONGO_URI"),
   groqApiKey: requireEnv("GROQ_API_KEY"),
   ownerId: optionalEnv("OWNER_ID", "880070472434339880"),
-  defaultPrefix: optionalEnv("DEFAULT_PREFIX", "b."),
+  defaultPrefix: optionalEnv("DEFAULT_PREFIX", "a."),
   defaultModel: optionalEnv("DEFAULT_MODEL", "llama-3.3-70b-versatile"),
   maxHistory: parseInt(optionalEnv("MAX_HISTORY", "50"), 10),
   contextWindow: parseInt(optionalEnv("CONTEXT_WINDOW", "10"), 10),

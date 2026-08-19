@@ -49,7 +49,7 @@ export async function buildSummaryCard(data: any) {
 
   ctx.fillStyle = ACCENT;
   ctx.font = "bold 28px 'Segoe UI', 'Helvetica Neue', sans-serif";
-  ctx.fillText("Blaze  •  Operational Metrics", 60, 85);
+  ctx.fillText("Aegis  •  Operational Metrics", 60, 85);
 
   ctx.fillStyle = DIM;
   ctx.font = "14px 'Segoe UI', 'Helvetica Neue', sans-serif";

@@ -110,7 +110,7 @@ export class ModCommand extends BaseCommand {
             { name: "Top Actions", value: topActions || "None", inline: true },
             { name: "Recent Activity", value: recentEntries.join("\n") || "None", inline: false },
           )
-          .setFooter({ text: "Blaze — Behavioral Logic & Anomaly Zone Engine" })
+          .setFooter({ text: "Aegis — Community AI Assistant" })
           .setTimestamp(),
       ],
     };
@@ -156,7 +156,7 @@ export class ModCommand extends BaseCommand {
               : []),
           )
           .setTimestamp()
-          .setFooter({ text: "Incident logged by Blaze — Behavioral Logic & Anomaly Zone Engine" }),
+          .setFooter({ text: "Incident logged by Aegis — Community AI Assistant" }),
       ],
     };
   }
@@ -167,10 +167,10 @@ export class ModCommand extends BaseCommand {
         new EmbedBuilder()
           .setColor(0x00b4d8)
           .setTitle("Moderation Guidelines")
-          .setDescription("Blaze assists moderators but never acts automatically.")
+          .setDescription("Aegis assists moderators but never acts automatically.")
           .addFields(
-            { name: "What Blaze Does", value: "• Summarize recent incidents\n• Log incidents with severity\n• Answer staff questions about procedures\n• Document incidents for review", inline: false },
-            { name: "What Blaze Never Does", value: "• Auto-ban, kick, or timeout\n• Delete content without approval\n• Take punitive action independently\n• Replace moderator judgment", inline: false },
+            { name: "What Aegis Does", value: "• Summarize recent incidents\n• Log incidents with severity\n• Answer staff questions about procedures\n• Document incidents for review", inline: false },
+            { name: "What Aegis Never Does", value: "• Take punitive action without moderator input\n• Delete content without approval\n• Replace moderator judgment", inline: false },
             { name: "Commands", value: "`mod summary` — Recent incident summary\n`mod incident` — Log an incident\n`mod help` — This message", inline: false },
           )
           .setFooter({ text: "All actions are logged and require moderator confirmation." })

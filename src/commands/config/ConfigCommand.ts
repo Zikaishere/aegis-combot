@@ -1,4 +1,4 @@
-import { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
+import { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder, ChannelType } from "discord.js";
 import { BaseCommand } from "../base/BaseCommand.js";
 import type { CommandContext } from "../types.js";
 import { env } from "../../config/index.js";
@@ -77,6 +77,31 @@ export class ConfigCommand extends BaseCommand {
         .setName("prompt")
         .setDescription("Add a server prompt addition (admin only)")
         .addStringOption((opt) => opt.setName("text").setDescription("Prompt text").setRequired(true)),
+    )
+    .addSubcommandGroup((group) =>
+      group
+        .setName("ai-channel")
+        .setDescription("Manage which channels the AI responds in")
+        .addSubcommand((sub) =>
+          sub.setName("list").setDescription("List AI-enabled channels"),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("add")
+            .setDescription("Add a channel where the AI can respond")
+            .addChannelOption((opt) => opt.setName("channel").setDescription("Channel to add").addChannelTypes(ChannelType.GuildText).setRequired(true)),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("remove")
+            .setDescription("Remove a channel from AI responses")
+            .addChannelOption((opt) => opt.setName("channel").setDescription("Channel to remove").addChannelTypes(ChannelType.GuildText).setRequired(true)),
+        )
+        .addSubcommand((sub) =>
+          sub
+            .setName("clear")
+            .setDescription("Clear all restrictions (AI responds everywhere)"),
+        ),
     )
     .addSubcommandGroup((group) =>
       group
@@ -225,7 +250,7 @@ export class ConfigCommand extends BaseCommand {
         return `set \`${trait}\` to ${(val * 100).toFixed(0)}%`;
       }
 
-      return "usage: `b.config dna view`, `b.config dna reset`, or `b.config dna set <trait> <0-1>`";
+      return "usage: `a.config dna view`, `a.config dna reset`, or `a.config dna set <trait> <0-1>`";
     }
 
     if (sub === "profile") {
@@ -255,7 +280,7 @@ export class ConfigCommand extends BaseCommand {
         return "profile reset";
       }
 
-      return "usage: `b.config profile view [@user]` or `b.config profile reset [@user]` (admin)";
+      return "usage: `a.config profile view [@user]` or `a.config profile reset [@user]` (admin)";
     }
 
     if (sub === "view" || sub === "") {
@@ -283,7 +308,7 @@ export class ConfigCommand extends BaseCommand {
     if (action === "remove" || action === "rm") {
       const idx = parseInt(ctx.args[2], 10);
       if (isNaN(idx) || idx < 1 || idx > userCfg.customFacts.length) {
-        return "provide a valid fact number (use `b.config fact list` to see them)";
+        return "provide a valid fact number (use `a.config fact list` to see them)";
       }
       const removed = userCfg.customFacts[idx - 1];
       await removeCustomFact(ctx.userId, idx - 1);
@@ -296,7 +321,7 @@ export class ConfigCommand extends BaseCommand {
       return `**Your saved facts:**\n${lines}`;
     }
 
-    return "usage: `b.config fact add <text>`, `b.config fact list`, or `b.config fact remove <n>`";
+    return "usage: `a.config fact add <text>`, `a.config fact list`, or `a.config fact remove <n>`";
   }
 
   private async buildViewEmbed(ctx: CommandContext) {
@@ -306,7 +331,7 @@ export class ConfigCommand extends BaseCommand {
 
     const embed = new EmbedBuilder()
       .setColor(0x00b4d8)
-      .setTitle("Blaze Configuration")
+      .setTitle("Aegis Configuration")
       .addFields(
         {
           name: "🌐 Server",
@@ -388,6 +413,43 @@ export class ConfigCommand extends BaseCommand {
       if (!text) return "provide prompt text";
       await addGuildPrompt(ctx.guildId, text);
       return "added server prompt addition";
+    }
+
+    if (group === "ai-channel") {
+      if (!isAdmin || !ctx.guildId) return "only server admins can manage AI channels";
+      const guildCfg = await getGuildConfig(ctx.guildId);
+
+      if (sub === "list") {
+        const channels = guildCfg?.allowedChannels || [];
+        if (channels.length === 0) return "AI responds in all channels (no restrictions).";
+        return `AI responds in:\n${channels.map((id: string) => `<#${id}>`).join("\n")}`;
+      }
+
+      if (sub === "add") {
+        const channel = interaction.options.getChannel("channel");
+        if (!channel) return "provide a channel.";
+        const current = guildCfg?.allowedChannels || [];
+        if (current.includes(channel.id)) return `<#${channel.id}> is already in the list.`;
+        current.push(channel.id);
+        await updateGuildConfig(ctx.guildId, { allowedChannels: current });
+        return `AI will now respond in <#${channel.id}>. Remove other channels to restrict AI to only this one.`;
+      }
+
+      if (sub === "remove") {
+        const channel = interaction.options.getChannel("channel");
+        if (!channel) return "provide a channel.";
+        const current = guildCfg?.allowedChannels || [];
+        const idx = current.indexOf(channel.id);
+        if (idx === -1) return `<#${channel.id}> is not in the list.`;
+        current.splice(idx, 1);
+        await updateGuildConfig(ctx.guildId, { allowedChannels: current });
+        return `Removed <#${channel.id}> from AI channels.`;
+      }
+
+      if (sub === "clear") {
+        await updateGuildConfig(ctx.guildId, { allowedChannels: [] });
+        return "AI channel restrictions cleared. AI will respond in all channels.";
+      }
     }
 
     if (group === "fact") {

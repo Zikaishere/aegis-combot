@@ -52,7 +52,7 @@ export class MemoryCommand extends BaseCommand {
     if (sub === "forget" || sub === "delete" || sub === "remove") return this.deleteMemory(ctx);
     if (sub === "search") return this.searchMemories(ctx);
     if (sub === "help") {
-      return "`b.memory <key> = <value>` — store a memory\n`b.memory list` — show recent memories\n`b.memory search <query>` — search memories\n`b.memory forget <key>` — delete a memory\n`b.whatdoiknow` — same as `b.memory list`";
+      return "`a.memory <key> = <value>` — store a memory\n`a.memory list` — show recent memories\n`a.memory search <query>` — search memories\n`a.memory forget <key>` — delete a memory\n`a.whatdoiknow` — same as `a.memory list`";
     }
 
     const eqIdx = ctx.args.indexOf("=");

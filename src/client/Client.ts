@@ -8,16 +8,18 @@ export const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.DirectMessages,
   ],
-  partials: [Partials.Channel],
+  partials: [Partials.Channel, Partials.Message, Partials.Reaction],
 });
 
 client.once("ready", async () => {
-  console.log(`Blaze online as ${client.user?.tag}`);
+  console.log(`Aegis online as ${client.user?.tag}`);
   client.user?.setPresence({
-    activities: [{ name: "Behavioral Logic & Anomaly Zone Engine | Monitoring reality", type: 0 }],
+    activities: [{ name: "Community AI Assistant | Aegis", type: 0 }],
     status: "online",
   });
 
@@ -37,6 +39,33 @@ client.once("ready", async () => {
 
   client.on("messageCreate", handleMessage);
   client.on("interactionCreate", handleInteraction);
+
+  const { handleGuildMemberAdd, handleGuildMemberRemove } = await import("../handlers/WelcomeHandler.js");
+  const { handleVerificationJoin } = await import("../handlers/VerificationHandler.js");
+
+  client.on("guildMemberAdd", async (member) => {
+    await handleGuildMemberAdd(member as any);
+    await handleVerificationJoin(member as any);
+  });
+
+  client.on("guildMemberRemove", (member) => handleGuildMemberRemove(member as any));
+
+  const { handleReactionAdd, handleReactionRemove } = await import("../handlers/ReactionRoleHandler.js");
+  client.on("messageReactionAdd", (reaction, user) => handleReactionAdd(reaction as any, user as any));
+  client.on("messageReactionRemove", (reaction, user) => handleReactionRemove(reaction as any, user as any));
+
+  const audit = await import("../handlers/AuditLogHandler.js");
+  client.on("channelCreate", (channel) => audit.onChannelCreate(channel));
+  client.on("channelDelete", (channel) => audit.onChannelDelete(channel));
+  client.on("channelUpdate", (old, updated) => audit.onChannelUpdate(old, updated));
+  client.on("roleCreate", (role) => audit.onRoleCreate(role));
+  client.on("roleDelete", (role) => audit.onRoleDelete(role));
+  client.on("roleUpdate", (old, updated) => audit.onRoleUpdate(old, updated));
+  client.on("guildMemberUpdate", (old, updated) => audit.onMemberUpdate(old as any, updated));
+  client.on("messageDelete", (message) => audit.onMessageDelete(message as any));
+  client.on("messageUpdate", (old, updated) => audit.onMessageUpdate(old as any, updated as any));
+  client.on("guildBanAdd", (ban) => audit.onBanAdd(ban));
+  client.on("guildBanRemove", (ban) => audit.onBanRemove(ban));
 });
 
 client.on("guildCreate", async (guild) => {
@@ -50,11 +79,11 @@ client.on("guildCreate", async (guild) => {
 
   const embed = new EmbedBuilder()
     .setColor(0x00b4d8)
-    .setTitle("New Facility Registered")
+    .setTitle("Joined Server")
     .addFields(
-      { name: "Designation", value: guild.name, inline: true },
-      { name: "Facility ID", value: guild.id, inline: true },
-      { name: "Personnel", value: `${guild.memberCount}`, inline: true },
+      { name: "Server", value: guild.name, inline: true },
+      { name: "ID", value: guild.id, inline: true },
+      { name: "Members", value: `${guild.memberCount}`, inline: true },
     )
     .setTimestamp();
   (channel as any).send({ embeds: [embed] }).catch(() => {});
@@ -71,10 +100,10 @@ client.on("guildDelete", async (guild) => {
 
   const embed = new EmbedBuilder()
     .setColor(0xff1744)
-    .setTitle("Facility Deregisitered")
+    .setTitle("Left Server")
     .addFields(
-      { name: "Designation", value: guild.name, inline: true },
-      { name: "Facility ID", value: guild.id, inline: true },
+      { name: "Server", value: guild.name, inline: true },
+      { name: "ID", value: guild.id, inline: true },
     )
     .setTimestamp();
   (channel as any).send({ embeds: [embed] }).catch(() => {});
