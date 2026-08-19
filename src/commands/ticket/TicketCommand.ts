@@ -173,8 +173,9 @@ export class TicketCommand extends BaseCommand {
       await (logChannel as any).send({ embeds: [embed] }).catch(() => {});
     }
 
-    if ("send" in ctx.message.channel) {
-      await ctx.message.channel.send(config.closeMessage || "This ticket has been closed.").catch(() => {});
+    const replyChannel = ctx.interaction?.channel ?? ctx.message?.channel;
+    if (replyChannel && "send" in replyChannel) {
+      await (replyChannel as any).send(config.closeMessage || "This ticket has been closed.").catch(() => {});
     }
 
     setTimeout(async () => {

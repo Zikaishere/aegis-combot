@@ -28,7 +28,7 @@ export class PurgeCommand extends BaseCommand {
 
     if (!count || count < 1 || count > 100) return "Provide a count between 1 and 100.";
 
-    const channel = ctx.message.channel;
+    const channel = ctx.interaction?.channel ?? ctx.message?.channel;
     if (!channel || !("messages" in channel)) return "This command can only be used in text channels.";
 
     let deleted = 0;
