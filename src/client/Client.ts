@@ -1,5 +1,4 @@
 import { Client, GatewayIntentBits, Partials, EmbedBuilder } from "discord.js";
-import { env } from "../config/index.js";
 import * as telemetry from "../telemetry/recorder.js";
 
 const LOG_CHANNEL = process.env.LOG_CHANNEL;
@@ -51,9 +50,9 @@ client.once("clientReady", async () => {
   });
 
   client.on("guildMemberRemove", async (member) => {
-    handleGuildMemberRemove(member as any);
-    const nuke = await import("../safety/NukeDetector.js");
-    await nuke.onKickNuke(member as any);
+    await handleGuildMemberRemove(member as any);
+    const { onKickNuke } = await import("../safety/NukeDetector.js");
+    await onKickNuke(member as any);
   });
 
   const { handleReactionAdd, handleReactionRemove } = await import("../handlers/ReactionRoleHandler.js");
