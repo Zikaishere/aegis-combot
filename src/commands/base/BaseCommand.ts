@@ -44,18 +44,22 @@ export abstract class BaseCommand implements ICommand {
         }
       }
 
+      if (ctx.type === "slash" && ctx.interaction && !ctx.interaction.replied && !ctx.interaction.deferred) {
+        await ctx.interaction.deferReply();
+      }
+
       const result = await this.run(ctx);
       if (result === null) return { ok: true, data: undefined };
 
       if (typeof result === "string") {
         if (ctx.type === "slash" && ctx.interaction) {
-          await ctx.interaction.reply(result);
+          await ctx.interaction.editReply(result);
         } else {
           await ctx.message.reply(result);
         }
       } else if (typeof result === "object") {
         if (ctx.type === "slash" && ctx.interaction) {
-          await ctx.interaction.reply(result as any);
+          await ctx.interaction.editReply(result as any);
         } else {
           await ctx.message.reply(result as any);
         }
