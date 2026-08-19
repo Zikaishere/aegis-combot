@@ -29,6 +29,7 @@ import { BansCommand } from "./mod/BansCommand.js";
 import { SetupCommand } from "./setup/SetupCommand.js";
 import { DataCommand } from "./data/DataCommand.js";
 import { TempVCCommand } from "./tempvc/TempVCCommand.js";
+import { WordleCommand } from "./games/WordleCommand.js";
 import { handleStatsPrefix, handleStatsSlash } from "../telemetry/commands.js";
 
 const commands: Map<string, ICommand> = new Map();
@@ -70,6 +71,7 @@ register(new BansCommand());
 register(new SetupCommand());
 register(new DataCommand());
 register(new TempVCCommand());
+register(new WordleCommand());
 
 export function getAllCommands(): Map<string, ICommand> {
   return new Map(commands);
