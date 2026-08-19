@@ -27,7 +27,7 @@ function cleanupExpired(): void {
   }
 }
 
-function buildVerifyRow(): any {
+export function buildVerifyRow(): any {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(BUTTON_ID_VERIFY)
@@ -40,7 +40,7 @@ function buildVerifyRow(): any {
   );
 }
 
-function buildVerifyEmbed(guildName: string, guildIcon?: string | null): EmbedBuilder {
+export function buildVerifyEmbed(guildName: string, guildIcon?: string | null): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
     .setTitle("Welcome — Verification Required")

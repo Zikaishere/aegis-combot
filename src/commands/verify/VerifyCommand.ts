@@ -148,6 +148,20 @@ export class VerifyCommand extends BaseCommand {
     config.enabled = !!enabled;
     await config.save();
 
+    if (enabled && config.gateChannelId) {
+      const { buildVerifyEmbed, buildVerifyRow } = await import("../../handlers/VerificationHandler.js");
+      const guild = ctx.interaction?.guild ?? ctx.message?.guild;
+      if (guild) {
+        const gateChannel = await guild.channels.fetch(config.gateChannelId).catch(() => null);
+        if (gateChannel && "send" in gateChannel) {
+          await (gateChannel as any).send({
+            embeds: [buildVerifyEmbed(guild.name, guild.iconURL())],
+            components: [buildVerifyRow()],
+          }).catch(() => {});
+        }
+      }
+    }
+
     return `Verification ${enabled ? "enabled" : "disabled"}.`;
   }
 
