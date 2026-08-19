@@ -125,6 +125,28 @@ export class HoneypotCommand extends BaseCommand {
     config.trapChannels.push(channel.id);
     await config.save();
 
+    const guild = ctx.interaction?.guild ?? ctx.message?.guild;
+    const targetChannel = guild ? await guild.channels.fetch(channel.id).catch(() => null) : null;
+
+    if (targetChannel && "send" in targetChannel) {
+      const serverIcon = guild?.iconURL();
+      const embed = new EmbedBuilder()
+        .setColor(0xff9800)
+        .setTitle("Restricted Channel")
+        .setDescription(
+          `This channel is **monitored** by the server's security system.\n\n` +
+          `Sending a message here will result in **all of your roles being removed** and you will need to **re-verify** to regain access to the server.\n\n` +
+          `This measure protects the community from compromised accounts.\n\n` +
+          `**Do not send messages in this channel unless instructed by a staff member.**`,
+        )
+        .setFooter({ text: "Aegis — Honeypot System" })
+        .setTimestamp();
+
+      if (serverIcon) embed.setThumbnail(serverIcon);
+
+      await (targetChannel as any).send({ embeds: [embed] }).catch(() => {});
+    }
+
     return `<#${channel.id}> added as a trap channel. Users who send messages there will have their roles stripped.`;
   }
 
