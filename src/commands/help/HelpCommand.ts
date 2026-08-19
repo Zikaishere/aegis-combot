@@ -97,13 +97,19 @@ export class HelpCommand extends BaseCommand {
       ? ctx.interaction?.client.user
       : (ctx.message as any)?.client?.user;
 
-    const grouped = new Map<number, CmdInfo[]>();
+    const grouped = new Map<number, number>();
     for (const cmd of cmds) {
-      if (!grouped.has(cmd.permLevel)) grouped.set(cmd.permLevel, []);
-      grouped.get(cmd.permLevel)!.push(cmd);
+      grouped.set(cmd.permLevel, (grouped.get(cmd.permLevel) ?? 0) + 1);
     }
 
     const sorted = [...grouped.entries()].sort((a, b) => a[0] - b[0]);
+
+    const CATEGORY_DESC: Record<number, string> = {
+      [PermissionLevel.None]: "Commands anyone can use",
+      [PermissionLevel.Moderator]: "Staff moderation tools",
+      [PermissionLevel.Administrator]: "Server configuration and setup",
+      [PermissionLevel.Owner]: "Bot owner only",
+    };
 
     const embed = new EmbedBuilder()
       .setColor(0x5865f2)
@@ -116,21 +122,19 @@ export class HelpCommand extends BaseCommand {
 
     if (botUser) embed.setThumbnail(botUser.displayAvatarURL());
 
-    for (const [permLevel, catCmds] of sorted) {
+    for (const [permLevel, count] of sorted) {
       const cat = CATEGORY_CONFIG[permLevel] || CATEGORY_CONFIG[PermissionLevel.None];
+      const desc = CATEGORY_DESC[permLevel] || "Miscellaneous";
       const keywords = cat.keywords.slice(0, 2).join(" / ");
-
-      const lines = catCmds.map(c => `\`${prefix}${c.name}\` — ${c.desc}`);
 
       embed.addFields({
         name: `${cat.emoji} ${cat.name}`,
-        value: lines.join("\n") + `\n\n*Type \`${prefix}help ${keywords}\` to expand*`,
-        inline: false,
+        value: `${desc} · ${count} commands\n*${prefix}help ${keywords}*`,
+        inline: true,
       });
     }
 
-    const totalSubs = cmds.reduce((sum, c) => sum + c.sub.length, 0);
-    embed.setFooter({ text: `${cmds.length} commands · ${totalSubs} subcommands` }).setTimestamp();
+    embed.setFooter({ text: `${cmds.length} commands total` }).setTimestamp();
 
     return { embeds: [embed] };
   }
