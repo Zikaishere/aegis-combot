@@ -102,4 +102,17 @@ export abstract class BaseCommand implements ICommand {
     }
     return { ok: false, error: msg };
   }
+
+  protected unknownSubcommand(sub?: string): string {
+    const options: any[] = Array.isArray(this.slashCommand?.options) ? this.slashCommand.options : [];
+    const subs = options.filter((o) => o.type === 1);
+    if (subs.length === 0) {
+      return sub ? `Unknown subcommand: \`${sub}\`.` : "This command requires a subcommand.";
+    }
+    const header = sub
+      ? `\`${sub}\` isn't a valid subcommand. Options:`
+      : "This command needs a subcommand. Options:";
+    const lines = subs.map((o) => `> \`${o.name}\` — ${o.description}`);
+    return [header, ...lines].join("\n");
+  }
 }

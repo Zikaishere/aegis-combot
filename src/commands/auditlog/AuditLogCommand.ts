@@ -54,7 +54,7 @@ export class AuditLogCommand extends BaseCommand {
       case "channel": return this.handleChannel(ctx);
       case "view": return this.handleView(ctx);
       case "status": return this.handleStatus(ctx);
-      default: return "Unknown subcommand.";
+      default: return this.unknownSubcommand(subcommand);
     }
   }
 

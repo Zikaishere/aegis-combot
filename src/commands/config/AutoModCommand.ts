@@ -157,7 +157,7 @@ export class AutoModCommand extends BaseCommand {
       case "ai": return this.handleAI(ctx);
       case "raid": return this.handleRaid(ctx);
       case "nuke": return this.handleNuke(ctx);
-      default: return "Unknown subcommand.";
+      default: return this.unknownSubcommand(subcommand);
     }
   }
 

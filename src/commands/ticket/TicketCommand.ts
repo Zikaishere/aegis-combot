@@ -68,7 +68,7 @@ export class TicketCommand extends BaseCommand {
       case "add": return this.handleAdd(ctx);
       case "config": return this.handleConfig(ctx);
       case "transcript": return this.handleTranscript(ctx);
-      default: return "Unknown subcommand.";
+      default: return this.unknownSubcommand(subcommand);
     }
   }
 

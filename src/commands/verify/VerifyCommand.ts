@@ -70,7 +70,7 @@ export class VerifyCommand extends BaseCommand {
       case "dm_message": return this.handleDmMessage(ctx);
       case "test": return this.handleTest(ctx);
       case "manual": return this.handleManual(ctx);
-      default: return "Unknown subcommand.";
+      default: return this.unknownSubcommand(subcommand);
     }
   }
 

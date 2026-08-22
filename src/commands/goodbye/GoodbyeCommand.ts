@@ -67,7 +67,7 @@ export class GoodbyeCommand extends BaseCommand {
       case "toggle": return this.handleToggle(ctx);
       case "embed": return this.handleEmbed(ctx);
       case "test": return this.handleTest(ctx);
-      default: return "Unknown subcommand.";
+      default: return this.unknownSubcommand(subcommand);
     }
   }
 

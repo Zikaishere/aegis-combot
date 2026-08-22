@@ -47,7 +47,7 @@ export class WordleCommand extends BaseCommand {
       case "stats": return this.handleStats(ctx);
       case "leaderboard": return this.handleLeaderboard(ctx);
       case "hint": return this.handleHint(ctx);
-      default: return "Unknown subcommand.";
+      default: return this.unknownSubcommand(subcommand);
     }
   }
 

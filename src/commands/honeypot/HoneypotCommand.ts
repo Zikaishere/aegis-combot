@@ -62,7 +62,7 @@ export class HoneypotCommand extends BaseCommand {
       case "add": return this.handleAdd(ctx);
       case "remove": return this.handleRemove(ctx);
       case "log": return this.handleLog(ctx);
-      default: return "Unknown subcommand.";
+      default: return this.unknownSubcommand(subcommand);
     }
   }
 

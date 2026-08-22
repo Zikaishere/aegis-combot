@@ -77,7 +77,7 @@ export class WelcomeCommand extends BaseCommand {
       case "embed": return this.handleEmbed(ctx);
       case "autorole": return this.handleAutoRole(ctx);
       case "test": return this.handleTest(ctx);
-      default: return "Unknown subcommand.";
+      default: return this.unknownSubcommand(subcommand);
     }
   }
 

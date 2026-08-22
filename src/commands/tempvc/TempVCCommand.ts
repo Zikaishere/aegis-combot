@@ -79,7 +79,7 @@ export class TempVCCommand extends BaseCommand {
       case "bitrate": return this.handleBitrate(ctx);
       case "limit": return this.handleLimit(ctx);
       case "status": return this.handleStatus(ctx);
-      default: return "Unknown subcommand.";
+      default: return this.unknownSubcommand(subcommand);
     }
   }
 

@@ -78,7 +78,7 @@ export class EmbedCommand extends BaseCommand {
       case "template":
         return this.handleTemplate(ctx);
       default:
-        return "Unknown subcommand.";
+        return this.unknownSubcommand(subcommand);
     }
   }
 

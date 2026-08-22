@@ -58,7 +58,7 @@ export class LockdownCommand extends BaseCommand {
       case "unlock": return this.handleUnlock(ctx, guild);
       case "lockdown": return this.handleLockdown(ctx, guild);
       case "unlockdown": return this.handleUnlockdown(ctx, guild);
-      default: return "Unknown subcommand.";
+      default: return this.unknownSubcommand(subcommand);
     }
   }
 
