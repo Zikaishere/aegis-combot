@@ -1,6 +1,7 @@
 import type { Client, VoiceState } from "discord.js";
-import { ChannelType, EmbedBuilder, PermissionFlagsBits } from "discord.js";
+import { ChannelType, PermissionFlagsBits } from "discord.js";
 import TempVCConfig from "../models/TempVCConfig.js";
+import { buildOwnerPanel, rememberPanelMessage } from "./TempVCPanel.js";
 
 const MODULE_VERSION = 2;
 const EMPTY_DELETE_DELAY_MS = 2 * 60 * 1000;
@@ -148,22 +149,12 @@ async function createTempChannel(guild: any, state: VoiceState, config: any): Pr
     return;
   }
 
-  const embed = new EmbedBuilder()
-    .setColor(0x00b4d8)
-    .setTitle("Temporary Voice Channel")
-    .setDescription(
-      "Your temporary voice channel has been created.\n\n" +
-        "**Controls:**\n" +
-        "> Rename the channel to change its name\n" +
-        "> Set user limit to control capacity\n" +
-        "> Kick members using Discord's built-in controls\n\n" +
-        "Channel will be deleted 2 minutes after it's empty.",
-    )
-    .setFooter({ text: "Aegis — Temp VC" })
-    .setTimestamp();
-
-  await (channel as any).send({ embeds: [embed] }).catch(() => {});
+  const panel = buildOwnerPanel(channel as any, member.id);
+  const sent = await (channel as any).send(panel).catch(() => {});
+  if (sent) await rememberPanelMessage(channel.id, sent.id).catch(() => {});
 }
+
+export { buildOwnerPanel } from "./TempVCPanel.js";
 
 export async function initTempVC(client: Client): Promise<void> {
   discordClient = client;
@@ -188,6 +179,14 @@ export async function initTempVC(client: Client): Promise<void> {
     }
   }
   console.log(`[TempVC] Init done — tracking ${tempChannels.size} channel(s)`);
+}
+
+export async function removeTempChannel(channelId: string): Promise<void> {
+  return deleteTempChannel(channelId);
+}
+
+export function setTempChannelOwner(channelId: string, ownerId: string): void {
+  tempChannels.set(channelId, { ownerId });
 }
 
 export function getTempChannelOwner(channelId: string): string | null {

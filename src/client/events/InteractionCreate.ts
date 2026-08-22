@@ -2,6 +2,7 @@ import type { Interaction, ChatInputCommandInteraction } from "discord.js";
 import { handleSlash } from "../../commands/CommandBus.js";
 import { handleVerifyButton, handleVerifyModalSubmit } from "../../handlers/VerificationHandler.js";
 import { handleTicketButton, handleTicketClose } from "../../handlers/TicketHandler.js";
+import { handleTempVCButton, handleTempVCModal, handleTempVCSelect } from "../../handlers/TempVCPanel.js";
 import { logError } from "../../services/ErrorService.js";
 import * as telemetry from "../../telemetry/recorder.js";
 
@@ -18,11 +19,24 @@ export async function handleInteraction(interaction: Interaction): Promise<void>
         await handleTicketClose(interaction);
         return;
       }
+      if (interaction.customId.startsWith("tempvc_")) {
+        await handleTempVCButton(interaction);
+        return;
+      }
       await handleVerifyButton(interaction);
       return;
     }
 
+    if (interaction.isUserSelectMenu()) {
+      if (interaction.customId.startsWith("tempvc_")) {
+        await handleTempVCSelect(interaction);
+      }
+      return;
+    }
+
     if (interaction.isModalSubmit()) {
+      const tempVcHandled = await handleTempVCModal(interaction);
+      if (tempVcHandled) return;
       const handled = await handleVerifyModalSubmit(interaction);
       if (handled) return;
     }
