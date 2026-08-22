@@ -5,6 +5,7 @@ export interface EnvConfig {
   ownerId: string;
   defaultPrefix: string;
   defaultModel: string;
+  fallbackModels: string[];
   maxHistory: number;
   contextWindow: number;
   defaultCooldownMs: number;

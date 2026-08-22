@@ -88,15 +88,12 @@ export async function handleConversation(message: Message): Promise<boolean> {
       return true;
     }
 
-    await addToChatHistory(context, "user", userMessage);
-
-    const guildMemories = await memoryManager
-      .getRelevant("guild", context.guildId || "global", 5)
-      .catch(() => []);
-
-    const [fullHistory, userProfile, serverDNA] = await Promise.all([
+    const [guildMemories, fullHistory, userProfile, serverDNA] = await Promise.all([
+      config.memoryEnabled
+        ? memoryManager.getRelevant("guild", context.guildId || "global", 5).catch(() => [])
+        : [],
       getChatHistory(context.chatKey),
-      config.memoryEnabled ? getProfile(context.userId) : null,
+      config.memoryEnabled ? getProfile(context.userId).catch(() => null) : Promise.resolve(null),
       getServerDNAData(context.guildId),
     ]);
 
@@ -123,19 +120,43 @@ export async function handleConversation(message: Message): Promise<boolean> {
     });
 
     const provider = getProvider();
+    const placeholder = await message.reply("thinking...");
+
+    let acc = "";
+    let lastEditAt = Date.now();
+    let pendingEdit: Promise<unknown> | null = null;
+
     const response = await provider.generateChat({
       systemPrompt,
       messages: [...history, { role: "user", content: userMessage }],
       model: config.model,
       maxTokens: config.maxTokens,
       temperature: config.temperature,
+      onDelta: (delta) => {
+        acc += delta;
+        const now = Date.now();
+        if (!pendingEdit && now - lastEditAt >= 1500 && acc.trim()) {
+          lastEditAt = now;
+          pendingEdit = placeholder
+            .edit(acc)
+            .catch(() => {})
+            .finally(() => {
+              pendingEdit = null;
+            });
+        }
+      },
     });
 
+    clearInterval(typingInterval);
+
+    if (pendingEdit) await pendingEdit;
+    if (placeholder.editable) await placeholder.edit(response.content).catch(() => {});
+
+    await addToChatHistory(context, "user", userMessage);
     await addToChatHistory(context, "assistant", response.content);
-    await reply(response.content);
 
     if (config.memoryEnabled) {
-      updateProfile(context.userId, userName, userMessage, history);
+      updateProfile(context.userId, userName, userMessage, history).catch(() => {});
     }
     return true;
   } catch (error) {

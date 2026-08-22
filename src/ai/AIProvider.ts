@@ -4,6 +4,7 @@ export interface ChatParams {
   model: string;
   maxTokens: number;
   temperature: number;
+  onDelta?: (delta: string) => void;
 }
 
 export interface ChatResponse {

@@ -36,10 +36,14 @@ export async function handleInteraction(interaction: Interaction): Promise<void>
     const reply = `bro idk what just happened. Error ID: \`${errId}\``;
 
     if (interaction.isChatInputCommand() || interaction.isButton() || interaction.isModalSubmit()) {
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(reply);
-      } else {
-        await interaction.reply(reply);
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp(reply);
+        } else {
+          await interaction.reply(reply);
+        }
+      } catch {
+        // Interaction already expired; swallow to avoid unhandled rejection.
       }
     }
   }

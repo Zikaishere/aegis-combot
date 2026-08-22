@@ -27,6 +27,10 @@ export const env: EnvConfig = {
   ownerId: optionalEnv("OWNER_ID", "880070472434339880"),
   defaultPrefix: optionalEnv("DEFAULT_PREFIX", "a."),
   defaultModel: optionalEnv("DEFAULT_MODEL", "google/gemma-4-26b-a4b-it:free"),
+  fallbackModels: (process.env.AI_FALLBACK_MODELS || "")
+    .split(",")
+    .map((m) => m.trim())
+    .filter(Boolean),
   maxHistory: parseInt(optionalEnv("MAX_HISTORY", "50"), 10),
   contextWindow: parseInt(optionalEnv("CONTEXT_WINDOW", "10"), 10),
   defaultCooldownMs: parseInt(optionalEnv("COOLDOWN_MS", "3000"), 10),

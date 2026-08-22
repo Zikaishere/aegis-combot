@@ -1,6 +1,7 @@
 import type { CommandContext, ICommand } from "../types.js";
 import type { ExecResult } from "../../types/index.js";
 import type { Message, ChatInputCommandInteraction } from "discord.js";
+import { MessageFlags } from "discord.js";
 import { env } from "../../config/index.js";
 import { logError } from "../../services/ErrorService.js";
 import { PermissionLevel } from "../../auth/PermissionLevel.js";
@@ -20,14 +21,20 @@ export abstract class BaseCommand implements ICommand {
 
   async execute(ctx: CommandContext): Promise<ExecResult> {
     try {
+      if (ctx.type === "slash" && ctx.interaction && !ctx.interaction.replied && !ctx.interaction.deferred) {
+        await ctx.interaction.deferReply();
+      }
+
+      const denied = "Access denied. Clearance level insufficient.";
+
       if (this.ownerOnly && ctx.userId !== env.ownerId) {
-        return { ok: false, error: "Access denied. Clearance level insufficient." };
+        return this.deny(ctx, denied);
       }
 
       if (this.requiredPermissionLevel !== undefined) {
         const hasAccess = await checkPermission(ctx.userId, this.requiredPermissionLevel);
         if (!hasAccess && ctx.userId !== env.ownerId) {
-          return { ok: false, error: "Access denied. Clearance level insufficient." };
+          return this.deny(ctx, denied);
         }
       }
 
@@ -38,14 +45,10 @@ export abstract class BaseCommand implements ICommand {
             const perms = member.permissions as any;
             if (perms instanceof Map ? false : typeof perms.has === "function") {
               const hasAll = this.requiredPermissions.every((p: bigint) => perms.has(p));
-              if (!hasAll) return { ok: false, error: "Access denied. Clearance level insufficient." };
+              if (!hasAll) return { ok: false, error: denied };
             }
           }
         }
-      }
-
-      if (ctx.type === "slash" && ctx.interaction && !ctx.interaction.replied && !ctx.interaction.deferred) {
-        await ctx.interaction.deferReply();
       }
 
       const result = await this.run(ctx);
@@ -70,18 +73,33 @@ export abstract class BaseCommand implements ICommand {
       const errorId = await logError(error);
       const msg = `Operational error logged. Reference: \`${errorId}\``;
 
-      if (ctx.type === "slash" && ctx.interaction) {
-        const replied = (ctx.interaction as any).replied || (ctx.interaction as any).deferred;
-        if (replied) {
-          await ctx.interaction.followUp({ content: msg, ephemeral: true });
+      try {
+        if (ctx.type === "slash" && ctx.interaction) {
+          const flags = MessageFlags.Ephemeral;
+          if (ctx.interaction.replied || ctx.interaction.deferred) {
+            await ctx.interaction.followUp({ content: msg, flags });
+          } else {
+            await ctx.interaction.reply({ content: msg, flags });
+          }
         } else {
-          await ctx.interaction.reply({ content: msg, ephemeral: true });
+          await ctx.message.reply(msg);
         }
-      } else {
-        await ctx.message.reply(msg);
+      } catch {
+        // Interaction token expired or channel unavailable; nothing left to do.
       }
 
       return { ok: false, error: error instanceof Error ? error.message : String(error), errorId };
     }
+  }
+
+  private async deny(ctx: CommandContext, msg: string): Promise<ExecResult> {
+    try {
+      if (ctx.type === "slash" && ctx.interaction && (ctx.interaction.deferred || ctx.interaction.replied)) {
+        await ctx.interaction.followUp({ content: msg, flags: MessageFlags.Ephemeral });
+      }
+    } catch {
+      // Best-effort notification only.
+    }
+    return { ok: false, error: msg };
   }
 }
