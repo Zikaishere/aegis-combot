@@ -2,7 +2,10 @@ import type { Client, VoiceState } from "discord.js";
 import { ChannelType, EmbedBuilder, PermissionFlagsBits } from "discord.js";
 import TempVCConfig from "../models/TempVCConfig.js";
 
+const MODULE_VERSION = 2;
 const EMPTY_DELETE_DELAY_MS = 2 * 60 * 1000;
+
+console.log(`[TempVC] Handler v${MODULE_VERSION} loaded`);
 
 const tempChannels = new Map<string, { ownerId: string }>();
 const pendingDeletes = new Map<string, NodeJS.Timeout>();
@@ -39,32 +42,27 @@ export async function onVoiceStateUpdate(oldState: VoiceState, newState: VoiceSt
   if (!guild) return;
 
   const config = await TempVCConfig.findOne({ guildId: guild.id });
-  if (!config?.enabled || !config.lobbyChannelId) {
-    if (newState.channelId === config?.lobbyChannelId) {
-      console.warn(`[TempVC] Lobby join ignored in guild ${guild.id}: enabled=${config?.enabled}, lobby=${config?.lobbyChannelId}`);
-    }
-    return;
+  const lobbyId = config?.lobbyChannelId ?? null;
+
+  const joinedId = newState.channelId;
+  const leftId = oldState.channelId;
+
+  // Someone joined a temp channel — cancel its pending deletion.
+  if (joinedId && pendingDeletes.has(joinedId)) {
+    console.log(`[TempVC] Rejoin cancels deletion of ${joinedId}`);
+    cancelPendingDelete(joinedId);
   }
 
-  const joinedChannel = newState.channel;
-  const leftChannel = oldState.channel;
-
-  if (joinedChannel && pendingDeletes.has(joinedChannel.id)) {
-    cancelPendingDelete(joinedChannel.id);
-  }
-
-  if (joinedChannel && joinedChannel.id === config.lobbyChannelId && leftChannel?.id !== joinedChannel.id) {
-    console.log(`[TempVC] Lobby join by ${newState.member?.id ?? newState.id} in guild ${guild.id}`);
-    const existing = [...tempChannels.entries()].find(([, t]) => t.ownerId === newState.member?.id);
-    if (existing) {
-      await newState.member?.voice.setChannel(existing[0]).catch(() => {});
-      return;
-    }
+  // Join-to-create.
+  if (config?.enabled && lobbyId && joinedId === lobbyId && leftId !== joinedId) {
+    console.log(`[TempVC] Lobby join by ${newState.member?.id ?? "unknown"} in ${guild.id}`);
     await createTempChannel(guild, newState, config);
   }
 
-  if (leftChannel && tempChannels.has(leftChannel.id) && leftChannel.members.size === 0) {
-    scheduleDelete(leftChannel.id);
+  // Empty temp channel — schedule deletion.
+  if (leftId && tempChannels.has(leftId) && (oldState.channel?.members.size ?? 0) === 0) {
+    console.log(`[TempVC] ${leftId} empty — deleting in ${EMPTY_DELETE_DELAY_MS / 1000}s`);
+    scheduleDelete(leftId);
   }
 }
 
@@ -72,14 +70,25 @@ async function createTempChannel(guild: any, state: VoiceState, config: any): Pr
   const member = state.member;
   if (!member) return;
 
+  const existing = [...tempChannels.entries()].find(([, t]) => t.ownerId === member.id);
+  if (existing) {
+    const alive = await guild.channels.fetch(existing[0]).catch(() => null);
+    if (alive) {
+      await member.voice.setChannel(alive).catch(() => {});
+      return;
+    }
+    tempChannels.delete(existing[0]);
+  }
+
   const categoryFallback = state.channel?.parentId ?? null;
-  const channelName = config.channelNameTemplate
+  const channelName = String(config.channelNameTemplate || "{username}'s channel")
     .replace("{username}", member.user.username)
     .replace("{displayname}", member.displayName)
     .slice(0, 100);
 
-  const parentsToTry = [config.categoryId, categoryFallback, null]
-    .filter((value, index, arr) => value !== undefined && arr.indexOf(value) === index);
+  const parentsToTry = [config.categoryId, categoryFallback, null].filter(
+    (value, index, arr) => value !== undefined && arr.indexOf(value) === index,
+  );
 
   let channel: any = null;
   let lastError: unknown = null;
@@ -115,12 +124,15 @@ async function createTempChannel(guild: any, state: VoiceState, config: any): Pr
       return null;
     });
     if (channel) break;
+    console.warn(`[TempVC] Create failed with parent=${parent}, trying next`);
   }
 
   if (!channel) {
     console.error("[TempVC] Failed to create temporary voice channel:", lastError);
     return;
   }
+
+  console.log(`[TempVC] Created ${channel.id} ("${channel.name}") in guild ${guild.id}`);
 
   tempChannels.set(channel.id, { ownerId: member.id });
   await TempVCConfig.updateOne(
@@ -131,6 +143,7 @@ async function createTempChannel(guild: any, state: VoiceState, config: any): Pr
   try {
     await member.voice.setChannel(channel);
   } catch {
+    console.warn(`[TempVC] Could not move ${member.id} into ${channel.id} — deleting it`);
     await deleteTempChannel(channel.id).catch(() => {});
     return;
   }
@@ -140,11 +153,11 @@ async function createTempChannel(guild: any, state: VoiceState, config: any): Pr
     .setTitle("Temporary Voice Channel")
     .setDescription(
       "Your temporary voice channel has been created.\n\n" +
-      "**Controls:**\n" +
-      "> Rename the channel to change its name\n" +
-      "> Set user limit to control capacity\n" +
-      "> Kick members using Discord's built-in controls\n\n" +
-      "Channel will be deleted 2 minutes after it's empty.",
+        "**Controls:**\n" +
+        "> Rename the channel to change its name\n" +
+        "> Set user limit to control capacity\n" +
+        "> Kick members using Discord's built-in controls\n\n" +
+        "Channel will be deleted 2 minutes after it's empty.",
     )
     .setFooter({ text: "Aegis — Temp VC" })
     .setTimestamp();
@@ -174,6 +187,7 @@ export async function initTempVC(client: Client): Promise<void> {
       }
     }
   }
+  console.log(`[TempVC] Init done — tracking ${tempChannels.size} channel(s)`);
 }
 
 export function getTempChannelOwner(channelId: string): string | null {

@@ -2,6 +2,30 @@ import type { Message, GuildMember } from "discord.js";
 import { EmbedBuilder } from "discord.js";
 import HoneypotConfig from "../models/HoneypotConfig.js";
 import VerificationConfig from "../models/VerificationConfig.js";
+import { client } from "../client/Client.js";
+
+const reverifyPrompts = new Map<string, { channelId: string; messageIds: string[] }>();
+
+export function rememberReverifyPrompt(guildId: string, userId: string, channelId: string, messageId: string): void {
+  const key = `${guildId}:${userId}`;
+  const entry = reverifyPrompts.get(key) ?? { channelId, messageIds: [] };
+  entry.messageIds.push(messageId);
+  reverifyPrompts.set(key, entry);
+}
+
+export async function clearReverifyPrompts(guildId: string, userId: string): Promise<void> {
+  const key = `${guildId}:${userId}`;
+  const entry = reverifyPrompts.get(key);
+  if (!entry) return;
+  reverifyPrompts.delete(key);
+
+  const channel = await client.channels.fetch(entry.channelId).catch(() => null);
+  if (!channel || !channel.isTextBased()) return;
+
+  for (const id of entry.messageIds) {
+    await channel.messages.delete(id).catch(() => {});
+  }
+}
 
 export async function handleHoneypotMessage(message: Message): Promise<boolean> {
   if (message.author.bot) return false;
@@ -79,7 +103,7 @@ export async function handleHoneypotMessage(message: Message): Promise<boolean> 
   if (verifyConfig?.enabled && verifyConfig.gateChannelId) {
     const gateChannel = await message.guild.channels.fetch(verifyConfig.gateChannelId).catch(() => null);
     if (gateChannel && "send" in gateChannel) {
-      await (gateChannel as any).send({
+      const sent = await (gateChannel as any).send({
         content: `<@${member.id}>`,
         embeds: [
           new EmbedBuilder()
@@ -103,7 +127,11 @@ export async function handleHoneypotMessage(message: Message): Promise<boolean> 
             { type: 2, custom_id: "verify_resend_code", label: "Resend Code", style: 2 },
           ],
         }],
-      }).catch(() => {});
+      }).catch(() => null);
+
+      if (sent) {
+        rememberReverifyPrompt(message.guild.id, member.id, gateChannel.id, sent.id);
+      }
     }
   }
 

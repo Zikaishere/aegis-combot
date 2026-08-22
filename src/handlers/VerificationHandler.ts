@@ -2,6 +2,7 @@ import type { GuildMember, ButtonInteraction, ModalSubmitInteraction } from "dis
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ChannelType, PermissionFlagsBits } from "discord.js";
 import VerificationConfig from "../models/VerificationConfig.js";
 import { logModAction } from "../commands/mod/ModLogService.js";
+import { clearReverifyPrompts } from "./HoneypotHandler.js";
 
 const pendingCodes = new Map<string, { code: string; guildId: string; expiresAt: number }>();
 
@@ -245,6 +246,8 @@ export async function handleVerifyModalSubmit(interaction: ModalSubmitInteractio
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
+
+    await clearReverifyPrompts(interaction.guild.id, interaction.user.id).catch(() => {});
 
     if (config.logChannelId) {
       const logChannel = await interaction.guild.channels.fetch(config.logChannelId).catch(() => null);
