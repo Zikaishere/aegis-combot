@@ -39,7 +39,12 @@ export async function onVoiceStateUpdate(oldState: VoiceState, newState: VoiceSt
   if (!guild) return;
 
   const config = await TempVCConfig.findOne({ guildId: guild.id });
-  if (!config?.enabled || !config.lobbyChannelId) return;
+  if (!config?.enabled || !config.lobbyChannelId) {
+    if (newState.channelId === config?.lobbyChannelId) {
+      console.warn(`[TempVC] Lobby join ignored in guild ${guild.id}: enabled=${config?.enabled}, lobby=${config?.lobbyChannelId}`);
+    }
+    return;
+  }
 
   const joinedChannel = newState.channel;
   const leftChannel = oldState.channel;
@@ -49,6 +54,7 @@ export async function onVoiceStateUpdate(oldState: VoiceState, newState: VoiceSt
   }
 
   if (joinedChannel && joinedChannel.id === config.lobbyChannelId && leftChannel?.id !== joinedChannel.id) {
+    console.log(`[TempVC] Lobby join by ${newState.member?.id ?? newState.id} in guild ${guild.id}`);
     const existing = [...tempChannels.entries()].find(([, t]) => t.ownerId === newState.member?.id);
     if (existing) {
       await newState.member?.voice.setChannel(existing[0]).catch(() => {});
@@ -72,37 +78,49 @@ async function createTempChannel(guild: any, state: VoiceState, config: any): Pr
     .replace("{displayname}", member.displayName)
     .slice(0, 100);
 
-  const channel = await guild.channels.create({
-    name: channelName,
-    type: ChannelType.GuildVoice,
-    parent: config.categoryId || categoryFallback,
-    bitrate: config.bitrate * 1000,
-    userLimit: config.userLimit || 0,
-    permissionOverwrites: [
-      {
-        id: guild.id,
-        allow: [
-          PermissionFlagsBits.ViewChannel,
-          PermissionFlagsBits.Connect,
-          PermissionFlagsBits.Speak,
-        ],
-      },
-      {
-        id: member.id,
-        allow: [
-          PermissionFlagsBits.ManageChannels,
-          PermissionFlagsBits.MoveMembers,
-          PermissionFlagsBits.MuteMembers,
-          PermissionFlagsBits.DeafenMembers,
-        ],
-      },
-    ],
-  }).catch((err: unknown) => {
-    console.error("Failed to create temporary voice channel:", err);
-    return null;
-  });
+  const parentsToTry = [config.categoryId, categoryFallback, null]
+    .filter((value, index, arr) => value !== undefined && arr.indexOf(value) === index);
 
-  if (!channel) return;
+  let channel: any = null;
+  let lastError: unknown = null;
+
+  for (const parent of parentsToTry) {
+    channel = await guild.channels.create({
+      name: channelName,
+      type: ChannelType.GuildVoice,
+      parent,
+      bitrate: config.bitrate * 1000,
+      userLimit: config.userLimit || 0,
+      permissionOverwrites: [
+        {
+          id: guild.id,
+          allow: [
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.Connect,
+            PermissionFlagsBits.Speak,
+          ],
+        },
+        {
+          id: member.id,
+          allow: [
+            PermissionFlagsBits.ManageChannels,
+            PermissionFlagsBits.MoveMembers,
+            PermissionFlagsBits.MuteMembers,
+            PermissionFlagsBits.DeafenMembers,
+          ],
+        },
+      ],
+    }).catch((err: unknown) => {
+      lastError = err;
+      return null;
+    });
+    if (channel) break;
+  }
+
+  if (!channel) {
+    console.error("[TempVC] Failed to create temporary voice channel:", lastError);
+    return;
+  }
 
   tempChannels.set(channel.id, { ownerId: member.id });
   await TempVCConfig.updateOne(
