@@ -73,7 +73,8 @@ client.once("clientReady", async () => {
   client.on("guildBanAdd", (ban) => { audit.onBanAdd(ban); nuke.onBanNuke(ban); });
   client.on("guildBanRemove", (ban) => audit.onBanRemove(ban));
 
-  const { onVoiceStateUpdate } = await import("../handlers/TempVCHandler.js");
+  const { onVoiceStateUpdate, initTempVC } = await import("../handlers/TempVCHandler.js");
+  await initTempVC(client);
   client.on("voiceStateUpdate", (old, updated) => onVoiceStateUpdate(old, updated));
 });
 

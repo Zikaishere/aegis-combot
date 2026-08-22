@@ -116,11 +116,11 @@ export class TempVCCommand extends BaseCommand {
 
     await TempVCConfig.findOneAndUpdate(
       { guildId: ctx.guildId },
-      { lobbyChannelId: channelId },
+      { lobbyChannelId: channelId, enabled: true },
       { upsert: true },
     );
 
-    return "Lobby channel set to <#" + channelId + ">. Users joining this channel will get a temporary voice channel.";
+    return "Lobby channel set to <#" + channelId + "> and temp VCs are now **enabled** — joining the lobby creates a private voice channel.";
   }
 
   private async handleCategory(ctx: CommandContext): Promise<string> {

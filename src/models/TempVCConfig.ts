@@ -9,6 +9,7 @@ export interface ITempVCConfig extends Document {
   channelNameTemplate: string;
   bitrate: number;
   userLimit: number;
+  activeChannelIds: string[];
 }
 
 const tempVCConfigSchema = new Schema<ITempVCConfig>({
@@ -19,6 +20,7 @@ const tempVCConfigSchema = new Schema<ITempVCConfig>({
   channelNameTemplate: { type: String, default: "{username}'s channel" },
   bitrate: { type: Number, default: 64 },
   userLimit: { type: Number, default: 0 },
+  activeChannelIds: { type: [String], default: [] },
 });
 
 const TempVCConfig = mongoose.model<ITempVCConfig>("TempVCConfig", tempVCConfigSchema);

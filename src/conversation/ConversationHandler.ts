@@ -79,6 +79,24 @@ export async function handleConversation(message: Message): Promise<boolean> {
     await message.reply(text);
   }
 
+  const THINK_DELAY_MS = 2200;
+  let generationDone = false;
+  let acc = "";
+  let lastEditAt = Date.now();
+  let pendingEdit: Promise<unknown> | null = null;
+
+  let placeholderPromise: Promise<Message | null> | null = null;
+  const ensurePlaceholder = (): Promise<Message | null> => {
+    if (!placeholderPromise) {
+      placeholderPromise = message.reply("thinking...").catch(() => null);
+    }
+    return placeholderPromise;
+  };
+
+  const thinkTimer = setTimeout(() => {
+    if (!generationDone) void ensurePlaceholder();
+  }, THINK_DELAY_MS);
+
   try {
     const abilityResult = await tryAbilities(userMessage, context.guildId);
     if (abilityResult) {
@@ -120,11 +138,6 @@ export async function handleConversation(message: Message): Promise<boolean> {
     });
 
     const provider = getProvider();
-    const placeholder = await message.reply("thinking...");
-
-    let acc = "";
-    let lastEditAt = Date.now();
-    let pendingEdit: Promise<unknown> | null = null;
 
     const response = await provider.generateChat({
       systemPrompt,
@@ -133,13 +146,13 @@ export async function handleConversation(message: Message): Promise<boolean> {
       maxTokens: config.maxTokens,
       temperature: config.temperature,
       onDelta: (delta) => {
+        if (!placeholderPromise) return;
         acc += delta;
         const now = Date.now();
         if (!pendingEdit && now - lastEditAt >= 1500 && acc.trim()) {
           lastEditAt = now;
-          pendingEdit = placeholder
-            .edit(acc)
-            .catch(() => {})
+          pendingEdit = ensurePlaceholder()
+            .then((ph) => (ph?.editable ? ph.edit(acc).catch(() => {}) : undefined))
             .finally(() => {
               pendingEdit = null;
             });
@@ -147,10 +160,18 @@ export async function handleConversation(message: Message): Promise<boolean> {
       },
     });
 
+    generationDone = true;
+    clearTimeout(thinkTimer);
     clearInterval(typingInterval);
 
     if (pendingEdit) await pendingEdit;
-    if (placeholder.editable) await placeholder.edit(response.content).catch(() => {});
+
+    const placeholder = placeholderPromise ? await ensurePlaceholder() : null;
+    if (placeholder?.editable) {
+      await placeholder.edit(response.content).catch(() => {});
+    } else {
+      await message.reply(response.content);
+    }
 
     await addToChatHistory(context, "user", userMessage);
     await addToChatHistory(context, "assistant", response.content);
@@ -160,6 +181,8 @@ export async function handleConversation(message: Message): Promise<boolean> {
     }
     return true;
   } catch (error) {
+    generationDone = true;
+    clearTimeout(thinkTimer);
     clearInterval(typingInterval);
     console.error("Conversation handler error:", error);
     await message.reply("Operational error. Refer to logs for details.");
