@@ -46,7 +46,7 @@ export class OwnerCommand extends BaseCommand {
     if (cmd === "cleardb") return this.clearDb(ctx);
     if (cmd === "leaveservers") return this.leaveServers(ctx);
 
-    return null;
+    return this.unknownSubcommand(cmd || undefined);
   }
 
   private async lookupError(ctx: CommandContext) {

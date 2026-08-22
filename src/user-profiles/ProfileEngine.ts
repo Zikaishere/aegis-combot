@@ -1,9 +1,9 @@
 import UserProfile from "./models/UserProfile.js";
-import { extractFacts, stripPII, canExtract } from "./FactExtractor.js";
+import { extractFacts, stripPII, canExtract, markExtracted } from "./FactExtractor.js";
 import { updateTopicCounts, getTopInterests } from "./InterestTracker.js";
 import { isDuplicate } from "./stringUtils.js";
 
-const EXTRACTION_INTERVAL = 15;
+const EXTRACTION_INTERVAL = 5;
 const MAX_FACTS = 25;
 
 export async function getProfile(userId: string): Promise<{
@@ -39,12 +39,10 @@ export async function updateProfile(
     doc.messageCount = (doc.messageCount || 0) + 1;
     doc.topicCounts = updateTopicCounts(doc.topicCounts || new Map(), userMessage);
 
-    const shouldExtract =
-      doc.messageCount % EXTRACTION_INTERVAL === 0 &&
-      userMessage.length >= 100 &&
-      canExtract(userId);
+    const shouldExtract = doc.messageCount % EXTRACTION_INTERVAL === 0 && canExtract(userId);
 
     if (shouldExtract) {
+      console.log(`[Profile] Extracting facts for ${userId} (message #${doc.messageCount})`);
       const result = await extractFacts(
         userName,
         stripPII(userMessage.slice(0, 500)),
@@ -52,6 +50,13 @@ export async function updateProfile(
         doc.profile,
         doc.facts,
       );
+
+      console.log(
+        `[Profile] Extraction for ${userId}: ${result.newFacts.length} new fact(s), ` +
+        `${result.obsoleteFactIndices.length} obsolete, profile ${result.profile ? "updated" : "unchanged"}`,
+      );
+
+      if (result.ok) markExtracted(userId);
 
       if (result.profile) {
         doc.profile = result.profile;

@@ -9,7 +9,7 @@ export function buildContext(
   const userId = message.author.id;
 
   return {
-    chatKey: `${channelId}:${userId}`,
+    chatKey: `${message.guildId || "dm"}:${userId}`,
     channelId,
     guildId,
     userId,

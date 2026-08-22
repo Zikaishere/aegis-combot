@@ -19,6 +19,7 @@ export function stripPII(text: string): string {
 }
 
 export interface ExtractionResult {
+  ok: boolean;
   profile: string | null;
   newFacts: string[];
   obsoleteFactIndices: number[];
@@ -42,8 +43,11 @@ const MIN_COOLDOWN_MS = 120_000;
 export function canExtract(userId: string): boolean {
   const last = extractionCooldowns.get(userId);
   if (last && Date.now() - last < MIN_COOLDOWN_MS) return false;
-  extractionCooldowns.set(userId, Date.now());
   return true;
+}
+
+export function markExtracted(userId: string): void {
+  extractionCooldowns.set(userId, Date.now());
 }
 
 export async function extractFacts(
@@ -54,7 +58,7 @@ export async function extractFacts(
   existingFacts: string[],
 ): Promise<ExtractionResult> {
   const recentMessages = history
-    .slice(-6)
+    .slice(-10)
     .map((m) => `${m.role}: ${m.content}`)
     .join("\n");
 
@@ -107,12 +111,13 @@ Rules:
     }
 
     return {
+      ok: true,
       profile: parsed.profile && parsed.profile !== "same" ? stripPII(parsed.profile) : null,
       newFacts: Array.isArray(parsed.newFacts) ? parsed.newFacts.map((f: string) => stripPII(f)).filter((f: string) => f.length >= 10) : [],
       obsoleteFactIndices: Array.isArray(parsed.obsoleteFactIndices) ? parsed.obsoleteFactIndices : [],
     };
   } catch (error) {
     console.error("Fact extraction failed:", error);
-    return { profile: null, newFacts: [], obsoleteFactIndices: [] };
+    return { ok: false, profile: null, newFacts: [], obsoleteFactIndices: [] };
   }
 }
